@@ -72,7 +72,10 @@ export const erpApi = {
   getEnquiries: () => fetchApi('/admissions/enquiries'),
   createEnquiry: (data: any) => fetchApi('/admissions/enquiries', { method: 'POST', body: JSON.stringify(data) }),
   getApplications: () => fetchApi('/admissions/applications'),
+  getApplication: (id: string) => fetchApi(`/admissions/applications/${id}`),
   submitApplication: (data: any) => fetchApi('/admissions/applications', { method: 'POST', body: JSON.stringify(data) }),
+  uploadApplicationDocument: (id: string, data: any) =>
+    fetchApi(`/admissions/applications/${id}/documents`, { method: 'POST', body: JSON.stringify(data) }),
   decideAdmission: (id: string, decision: string, enrollmentData?: any) =>
     fetchApi(`/admissions/applications/${id}/decision`, { method: 'POST', body: JSON.stringify({ decision, enrollmentData }) }),
 

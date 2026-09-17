@@ -60,6 +60,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
     { title: "Campus Overview", url: `${basePath}/dashboard`, icon: LayoutDashboard },
     { title: "Academic Setup", url: `${basePath}/academics`, icon: BookOpen },
     { title: "Admissions Pipeline", url: `${basePath}/admissions`, icon: GraduationCap },
+    { title: "Document Vault & TC", url: `${basePath}/admissions?tab=vault`, icon: FileCheck2 },
     { title: "Students (360 Hub)", url: `${basePath}/students`, icon: Users },
     { title: "Daily Operations", url: `${basePath}/daily-ops`, icon: CalendarCheck },
     { title: "Attendance Engine", url: `${basePath}/attendance`, icon: FileCheck2 },
