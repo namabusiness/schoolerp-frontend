@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 4%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 4%;
+
+    --primary: 0 0% 89%;
+    --primary-foreground: 0 0% 5%;
+
+    --secondary: 0 0% 95%;
+    --secondary-foreground: 0 0% 10%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 45%;
+
+    --accent: 0 0% 93%;
+    --accent-foreground: 0 0% 10%;
+
+    --destructive: 0 0% 90%;
+    --destructive-foreground: 0 0% 10%;
+
+    --border: 0 0% 88%;
+    --input: 0 0% 88%;
+    --ring: 0 0% 40%;
+
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    background-color: #ffffff;
+    color: #09090b;
+    @apply antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* ==============================================================================
+   LIGHT MONOCHROME THEME SYSTEM OVERRIDES
+   Background: White | Text: Black | Buttons & Labels: Grey
+   ============================================================================== */
+
+/* Page & Panel Backgrounds -> Clean White */
+.bg-zinc-950,
+.bg-zinc-900,
+.bg-black:not(code):not(kbd) {
+  background-color: #ffffff !important;
+}
+
+.bg-zinc-950\/50,
+.bg-zinc-950\/80,
+.bg-zinc-900\/20,
+.bg-zinc-900\/30,
+.bg-zinc-900\/40,
+.bg-zinc-900\/50,
+.bg-zinc-900\/60,
+.bg-zinc-900\/80 {
+  background-color: #ffffff !important;
+}
+
+/* Secondary & Elevated Containers -> Light Grey */
+.bg-zinc-800,
+.bg-zinc-800\/30,
+.bg-zinc-800\/40,
+.bg-zinc-800\/50,
+.bg-zinc-800\/60,
+.bg-zinc-800\/80 {
+  background-color: #f4f4f5 !important;
+}
+
+/* Borders -> Light Grey */
+.border-zinc-800,
+.border-zinc-700,
+.border-zinc-600 {
+  border-color: #e4e4e7 !important;
+}
+
+/* Headings & Primary Text -> Sharp Black */
+.text-white,
+.text-zinc-50,
+.text-zinc-100,
+.text-zinc-200 {
+  color: #09090b !important;
+}
+
+/* Labels, Subtitles & Secondary Information -> Sleek Grey */
+label,
+.label,
+.text-zinc-400 {
+  color: #71717a !important;
+}
+
+.text-zinc-500 {
+  color: #52525b !important;
+}
+
+/* Buttons -> Styled in Grey with Black Text */
+button.bg-zinc-900,
+button.bg-zinc-950,
+button.bg-black,
+button.bg-zinc-50,
+button.bg-white:not([data-variant="outline"]) {
+  background-color: #e4e4e7 !important;
+  color: #09090b !important;
+  border: 1px solid #d4d4d8 !important;
+}
+
+button.bg-zinc-900:hover,
+button.bg-zinc-950:hover,
+button.bg-black:hover,
+button.bg-zinc-50:hover,
+button.bg-white:hover {
+  background-color: #d4d4d8 !important;
+  color: #000000 !important;
+}
+
+/* Form Inputs & Selects -> White with Grey border */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: #d4d4d8 !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #a1a1aa !important;
+}
+
+/* Hover background states */
+.hover\:bg-zinc-900:hover,
+.hover\:bg-zinc-900\/50:hover,
+.hover\:bg-zinc-800:hover {
+  background-color: #f4f4f5 !important;
+}
+
+.hover\:text-white:hover {
+  color: #000000 !important;
+}
+
+/* Custom monochrome scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f4f4f5;
+}
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
