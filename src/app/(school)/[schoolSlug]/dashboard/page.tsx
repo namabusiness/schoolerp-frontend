@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChartContainer } from "@/components/ui/chart";
 import {
   Users,
   GraduationCap,
@@ -124,20 +123,26 @@ export default function SchoolDashboardPage() {
       {/* Main Grid: Attendance Trend & Quick Operations */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <ChartContainer title="Weekly Student Attendance %" description="Average percentage across Grade 1 to 12" className="bg-zinc-900/60 border-zinc-800">
-            <div className="h-64 w-full pt-2">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ATTENDANCE_WEEK_DATA}>
-                  <XAxis dataKey="day" stroke="#737373" fontSize={11} tickLine={false} />
-                  <YAxis domain={[80, 100]} stroke="#737373" fontSize={11} tickLine={false} />
-                  <RechartsTooltip
-                    contentStyle={{ backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#fff", fontSize: "12px" }}
-                  />
-                  <Bar dataKey="rate" fill="#ffffff" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </ChartContainer>
+          <Card className="bg-white border-zinc-200">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold text-zinc-950">Weekly Student Attendance %</CardTitle>
+              <CardDescription className="text-xs text-zinc-500">Average percentage across Grade 1 to 12</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 w-full pt-2">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ATTENDANCE_WEEK_DATA}>
+                    <XAxis dataKey="day" stroke="#737373" fontSize={11} tickLine={false} />
+                    <YAxis domain={[80, 100]} stroke="#737373" fontSize={11} tickLine={false} />
+                    <RechartsTooltip
+                      contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e4e4e7", color: "#09090b", fontSize: "12px" }}
+                    />
+                    <Bar dataKey="rate" fill="#18181b" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Quick Operations Checklist */}

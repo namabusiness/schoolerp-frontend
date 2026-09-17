@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChartContainer } from "@/components/ui/chart";
 import { Download, FileSpreadsheet, BarChart2, TrendingUp } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -66,47 +65,59 @@ export default function PlatformReportsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <ChartContainer title="Subscription Plan Distribution" description="Breakdown of schools across pricing tiers" className="bg-zinc-900/60 border-zinc-800">
-          <div className="h-64 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={PLAN_SHARE}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={80}
-                  label={(entry) => `${entry.name} (${entry.value})`}
-                  fontSize={11}
-                  fill="#fff"
-                >
-                  {PLAN_SHARE.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#fff", fontSize: "12px" }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartContainer>
+        <Card className="bg-white border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-zinc-950">Subscription Plan Distribution</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">Breakdown of schools across pricing tiers</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full flex items-center justify-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={PLAN_SHARE}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={80}
+                    label={(entry) => `${entry.name} (${entry.value})`}
+                    fontSize={11}
+                    fill="#18181b"
+                  >
+                    {PLAN_SHARE.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e4e4e7", color: "#09090b", fontSize: "12px" }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-        <ChartContainer title="Module Adoption across Institutions" description="Total schools with module active and in operation" className="bg-zinc-900/60 border-zinc-800">
-          <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MODULE_ADOPTION} layout="vertical">
-                <XAxis type="number" stroke="#737373" fontSize={11} />
-                <YAxis dataKey="module" type="category" stroke="#737373" fontSize={11} width={80} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#fff", fontSize: "12px" }}
-                />
-                <Bar dataKey="schools" fill="#ffffff" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartContainer>
+        <Card className="bg-white border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-zinc-950">Module Adoption across Institutions</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">Total schools with module active and in operation</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={MODULE_ADOPTION} layout="vertical">
+                  <XAxis type="number" stroke="#737373" fontSize={11} />
+                  <YAxis dataKey="module" type="category" stroke="#737373" fontSize={11} width={80} />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e4e4e7", color: "#09090b", fontSize: "12px" }}
+                  />
+                  <Bar dataKey="schools" fill="#18181b" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

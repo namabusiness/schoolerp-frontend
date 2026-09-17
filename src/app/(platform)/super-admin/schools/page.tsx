@@ -41,6 +41,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { erpApi } from "@/lib/api";
+import { TableSkeleton } from "@/components/ui/page-loader";
 
 const ALL_ERP_MODULES = [
   { key: "ADMISSION", label: "Admissions Pipeline" },
@@ -333,21 +334,24 @@ export default function SchoolsManagementPage() {
       </Card>
 
       {/* Schools Table */}
-      <Card className="bg-zinc-900/60 border-zinc-800">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead>Institution Name & Slug</TableHead>
-                <TableHead>Tenant ID / Code</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Administrator</TableHead>
-                <TableHead>Student Limit</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSchools.map((school) => (
+      {loading ? (
+        <TableSkeleton rows={5} columns={6} />
+      ) : (
+        <Card className="bg-zinc-900/60 border-zinc-800">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-zinc-800 hover:bg-transparent">
+                  <TableHead>Institution Name & Slug</TableHead>
+                  <TableHead>Tenant ID / Code</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Administrator</TableHead>
+                  <TableHead>Student Limit</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSchools.map((school) => (
                 <TableRow key={school.id} className="border-zinc-800/60 hover:bg-zinc-900/40">
                   <TableCell>
                     <div className="font-semibold text-white text-xs">{school.name}</div>
@@ -397,6 +401,7 @@ export default function SchoolsManagementPage() {
           </Table>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

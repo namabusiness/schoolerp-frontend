@@ -19,7 +19,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChartContainer, MONO_CHART_COLORS } from "@/components/ui/chart";
 import {
   Building2,
   Users,
@@ -182,35 +181,47 @@ export default function SuperAdminDashboard() {
 
       {/* Analytics Charts in Monochrome */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartContainer title="Tenant Growth & Adoptions" description="Number of schools active on the platform over the last 6 months" className="bg-zinc-900/60 border-zinc-800">
-          <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MONTHLY_GROWTH_DATA}>
-                <XAxis dataKey="month" stroke="#737373" fontSize={11} tickLine={false} />
-                <YAxis stroke="#737373" fontSize={11} tickLine={false} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#fff", fontSize: "12px" }}
-                />
-                <Bar dataKey="schools" fill="#ffffff" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartContainer>
+        <Card className="bg-white border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-zinc-950">Tenant Growth & Adoptions</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">Number of schools active on the platform over the last 6 months</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={MONTHLY_GROWTH_DATA}>
+                  <XAxis dataKey="month" stroke="#737373" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#737373" fontSize={11} tickLine={false} />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e4e4e7", color: "#09090b", fontSize: "12px" }}
+                  />
+                  <Bar dataKey="schools" fill="#18181b" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
 
-        <ChartContainer title="Total Students Enrolled" description="Active student accounts receiving timetable, attendance and exams updates" className="bg-zinc-900/60 border-zinc-800">
-          <div className="h-64 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={MONTHLY_GROWTH_DATA}>
-                <XAxis dataKey="month" stroke="#737373" fontSize={11} tickLine={false} />
-                <YAxis stroke="#737373" fontSize={11} tickLine={false} />
-                <RechartsTooltip
-                  contentStyle={{ backgroundColor: "#0a0a0a", borderColor: "#262626", color: "#fff", fontSize: "12px" }}
-                />
-                <Line type="monotone" dataKey="students" stroke="#ffffff" strokeWidth={2} dot={{ fill: "#ffffff" }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </ChartContainer>
+        <Card className="bg-white border-zinc-200">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold text-zinc-950">Total Students Enrolled</CardTitle>
+            <CardDescription className="text-xs text-zinc-500">Active student accounts receiving timetable, attendance and exams updates</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64 w-full pt-2">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={MONTHLY_GROWTH_DATA}>
+                  <XAxis dataKey="month" stroke="#737373" fontSize={11} tickLine={false} />
+                  <YAxis stroke="#737373" fontSize={11} tickLine={false} />
+                  <RechartsTooltip
+                    contentStyle={{ backgroundColor: "#ffffff", borderColor: "#e4e4e7", color: "#09090b", fontSize: "12px" }}
+                  />
+                  <Line type="monotone" dataKey="students" stroke="#18181b" strokeWidth={2} dot={{ fill: "#18181b", r: 3 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Schools Table */}

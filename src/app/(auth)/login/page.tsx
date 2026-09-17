@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -197,8 +198,17 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full bg-zinc-200 text-zinc-900 border border-zinc-300 hover:bg-zinc-300 font-semibold text-xs tracking-wider uppercase h-10 shadow-sm"
                 >
-                  {loading ? "Authenticating..." : "Authorize & Proceed"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                  {loading ? (
+                    <>
+                      <Spinner size="sm" className="mr-2 border-zinc-400 border-t-zinc-950" />
+                      Authenticating...
+                    </>
+                  ) : (
+                    <>
+                      Authorize & Proceed
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
+                  )}
                 </Button>
               </form>
             </Tabs>

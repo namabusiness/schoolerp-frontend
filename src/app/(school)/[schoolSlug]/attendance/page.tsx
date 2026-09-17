@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import {
@@ -77,10 +78,16 @@ export default function AttendanceFlowPage() {
     );
   };
 
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+
   const handleSubmitAndLock = () => {
-    setIsLocked(true);
-    setSubmittedAlert(true);
-    setTimeout(() => setSubmittedAlert(false), 4000);
+    setIsSubmitting(true);
+    setTimeout(() => {
+      setIsLocked(true);
+      setSubmittedAlert(true);
+      setIsSubmitting(false);
+      setTimeout(() => setSubmittedAlert(false), 4000);
+    }, 600);
   };
 
   const presentCount = records.filter((r) => r.status === "PRESENT").length;
@@ -152,12 +159,21 @@ export default function AttendanceFlowPage() {
             </Button>
             <Button
               size="sm"
-              disabled={isLocked}
+              disabled={isLocked || isSubmitting}
               onClick={handleSubmitAndLock}
-              className="bg-white text-black hover:bg-zinc-200 text-xs font-semibold"
+              className="bg-zinc-200 text-zinc-900 hover:bg-zinc-300 text-xs font-semibold"
             >
-              <Lock className="h-3.5 w-3.5 mr-1" />
-              Submit & Lock
+              {isSubmitting ? (
+                <>
+                  <Spinner size="sm" className="mr-1.5 border-zinc-400 border-t-zinc-900" />
+                  Locking Register...
+                </>
+              ) : (
+                <>
+                  <Lock className="h-3.5 w-3.5 mr-1" />
+                  Submit & Lock
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
