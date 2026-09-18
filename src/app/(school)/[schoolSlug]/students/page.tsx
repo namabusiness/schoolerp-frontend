@@ -322,7 +322,7 @@ export default function StudentsDirectoryPage() {
                           className="h-7 text-xs border-zinc-200 hover:bg-zinc-100 font-mono"
                         >
                           <Eye className="h-3 w-3 mr-1" />
-                          360° Hub
+                          View 360
                         </Button>
                       </Link>
                     </TableCell>
