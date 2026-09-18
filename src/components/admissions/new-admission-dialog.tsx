@@ -122,16 +122,16 @@ export function NewAdmissionDialog({
 
   // Step 1: Student Details
   const [studentName, setStudentName] = React.useState("");
-  const [dob, setDob] = React.useState("2010-06-15");
-  const [age, setAge] = React.useState("16");
-  const [gender, setGender] = React.useState("Female");
-  const [bloodGroup, setBloodGroup] = React.useState("O+");
+  const [dob, setDob] = React.useState("");
+  const [age, setAge] = React.useState("");
+  const [gender, setGender] = React.useState("");
+  const [bloodGroup, setBloodGroup] = React.useState("");
   const [aadharNumber, setAadharNumber] = React.useState("");
   const [studentPhoto, setStudentPhoto] = React.useState<string | null>(null);
   const [address, setAddress] = React.useState("");
   const [emergencyContact, setEmergencyContact] = React.useState("");
   const [previousSchool, setPreviousSchool] = React.useState("");
-  const [previousBoard, setPreviousBoard] = React.useState("Tamil Nadu State Board");
+  const [previousBoard, setPreviousBoard] = React.useState("");
 
   // Step 2: Parent Details
   const [fatherName, setFatherName] = React.useState("");
@@ -147,24 +147,24 @@ export function NewAdmissionDialog({
   const [parentEmail, setParentEmail] = React.useState("");
 
   // Step 3: Academic Admission & Tamil Nadu Marksheet
-  const [targetGrade, setTargetGrade] = React.useState("Grade 11");
+  const [targetGrade, setTargetGrade] = React.useState("");
   const [selectedGroupKey, setSelectedGroupKey] = React.useState("BIO_MATHS");
 
   // 10th SSLC Marksheet Fields (Tamil Nadu format)
-  const [tenthRegNo, setTenthRegNo] = React.useState("TN-SSLC-847291");
-  const [tenthTmrCode, setTenthTmrCode] = React.useState("TMR/2026/04");
-  const [tenthYear, setTenthYear] = React.useState("2026");
+  const [tenthRegNo, setTenthRegNo] = React.useState("");
+  const [tenthTmrCode, setTenthTmrCode] = React.useState("");
+  const [tenthYear, setTenthYear] = React.useState("");
 
   const [tenthMarks, setTenthMarks] = React.useState({
-    tamil: { theory: "94", practical: "0" },
-    english: { theory: "88", practical: "0" },
-    maths: { theory: "96", practical: "0" },
-    science: { theory: "70", practical: "25" }, // Science out of 75+25 = 100
-    social: { theory: "92", practical: "0" },
+    tamil: { theory: "", practical: "" },
+    english: { theory: "", practical: "" },
+    maths: { theory: "", practical: "" },
+    science: { theory: "", practical: "" },
+    social: { theory: "", practical: "" },
   });
 
   // 11th HSC Marksheet Fields (For Grade 12 Admission)
-  const [eleventhRegNo, setEleventhRegNo] = React.useState("TN-HSC-729104");
+  const [eleventhRegNo, setEleventhRegNo] = React.useState("");
   const [eleventhMarks, setEleventhMarks] = React.useState<Record<string, { theory: string; practical: string }>>({});
 
   // Initialize 11th marks structure whenever selected group changes
@@ -173,10 +173,10 @@ export function NewAdmissionDialog({
     if (!groupDef) return;
 
     const initialMarks: Record<string, { theory: string; practical: string }> = {};
-    groupDef.subjects.forEach((sub, i) => {
+    groupDef.subjects.forEach((sub) => {
       initialMarks[sub.code] = {
-        theory: (sub.maxTheory - (i % 2 === 0 ? 5 : 8)).toString(),
-        practical: sub.maxPractical.toString(),
+        theory: "",
+        practical: "",
       };
     });
     setEleventhMarks(initialMarks);
@@ -192,6 +192,8 @@ export function NewAdmissionDialog({
       if (birthYear > 1990 && birthYear <= currentYear) {
         setAge((currentYear - birthYear).toString());
       }
+    } else {
+      setAge("");
     }
   };
 
@@ -224,23 +226,38 @@ export function NewAdmissionDialog({
     const soc = Number(tenthMarks.social.theory) || 0;
 
     const total = t + e + m + s + soc;
-    const isPass = t >= 35 && e >= 35 && m >= 35 && s >= 35 && soc >= 35 && sciTheo >= 20 && sciPrac >= 15;
-    const percentage = ((total / 500) * 100).toFixed(1);
+    const hasAnyMarks = [
+      tenthMarks.tamil.theory,
+      tenthMarks.english.theory,
+      tenthMarks.maths.theory,
+      tenthMarks.science.theory,
+      tenthMarks.science.practical,
+      tenthMarks.social.theory,
+    ].some((v) => v.trim() !== "");
 
-    return { total, isPass, percentage, sciTotal: s };
+    const isPass = hasAnyMarks
+      ? t >= 35 && e >= 35 && m >= 35 && s >= 35 && soc >= 35 && sciTheo >= 20 && sciPrac >= 15
+      : false;
+    const percentage = hasAnyMarks ? ((total / 500) * 100).toFixed(1) : "0.0";
+
+    return { total, isPass, percentage, sciTotal: s, hasAnyMarks };
   };
 
   // Calculate 11th HSC Total and Pass/Fail (for Grade 12 Admission)
   const calculateEleventhStats = () => {
     const groupDef = TN_SYLLABUS_GROUPS[selectedGroupKey];
-    if (!groupDef) return { total: 0, isPass: true, percentage: "0.0", maxTotal: 600 };
+    if (!groupDef) return { total: 0, isPass: false, percentage: "0.0", maxTotal: 600, hasAnyMarks: false };
 
     let total = 0;
     let isPass = true;
     let maxTotal = 0;
+    let hasAnyMarks = false;
 
     groupDef.subjects.forEach((sub) => {
-      const entry = eleventhMarks[sub.code] || { theory: "0", practical: "0" };
+      const entry = eleventhMarks[sub.code] || { theory: "", practical: "" };
+      if (entry.theory.trim() !== "" || entry.practical.trim() !== "") {
+        hasAnyMarks = true;
+      }
       const th = Number(entry.theory) || 0;
       const pr = Number(entry.practical) || 0;
       const subTotal = th + pr;
@@ -252,9 +269,10 @@ export function NewAdmissionDialog({
       }
     });
 
-    const percentage = maxTotal > 0 ? ((total / maxTotal) * 100).toFixed(1) : "0.0";
-    return { total, isPass, percentage, maxTotal };
+    const percentage = maxTotal > 0 && hasAnyMarks ? ((total / maxTotal) * 100).toFixed(1) : "0.0";
+    return { total, isPass: hasAnyMarks && isPass, percentage, maxTotal, hasAnyMarks };
   };
+
 
   const tenthStats = calculateTenthStats();
   const eleventhStats = calculateEleventhStats();

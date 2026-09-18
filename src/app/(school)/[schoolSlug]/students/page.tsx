@@ -21,154 +21,314 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Search, Eye, Plus, ArrowUpRight } from "lucide-react";
+import { Users, Search, Eye, Plus, User, Loader2 } from "lucide-react";
+import { erpApi } from "@/lib/api";
 
-const DEMO_STUDENTS = [
-  {
-    id: "student-alex-chen",
-    admissionNo: "ADM-2026-1001",
-    rollNo: "10-A-01",
-    name: "Alexander Chen",
-    grade: "Grade 10 - Section A",
-    gender: "Male",
-    parentName: "David Chen",
-    phone: "+1 555-482-9901",
-    attendanceRate: 98,
-    feeStatus: "PAID",
-    status: "ACTIVE",
-  },
-  {
-    id: "student-emma-watson",
-    admissionNo: "ADM-2026-1002",
-    rollNo: "10-A-02",
-    name: "Emma Watson",
-    grade: "Grade 10 - Section A",
-    gender: "Female",
-    parentName: "Chris Watson",
-    phone: "+1 555-391-4422",
-    attendanceRate: 94,
-    feeStatus: "PARTIAL",
-    status: "ACTIVE",
-  },
-  {
-    id: "student-liam-smith",
-    admissionNo: "ADM-2026-1003",
-    rollNo: "10-A-03",
-    name: "Liam Smith",
-    grade: "Grade 10 - Section A",
-    gender: "Male",
-    parentName: "Emily Smith",
-    phone: "+1 555-112-9988",
-    attendanceRate: 91,
-    feeStatus: "PAID",
-    status: "ACTIVE",
-  },
-  {
-    id: "student-olivia-taylor",
-    admissionNo: "ADM-2026-1004",
-    rollNo: "10-A-04",
-    name: "Olivia Taylor",
-    grade: "Grade 10 - Section A",
-    gender: "Female",
-    parentName: "Robert Taylor",
-    phone: "+1 555-776-3311",
-    attendanceRate: 99,
-    feeStatus: "PAID",
-    status: "ACTIVE",
-  },
-];
+interface StudentItem {
+  id: string;
+  admissionNo: string;
+  rollNo: string;
+  name: string;
+  grade: string;
+  gender?: string;
+  parentName: string;
+  phone: string;
+  attendanceRate: number;
+  feeStatus: string;
+  status: string;
+  photoUrl?: string | null;
+}
 
 export default function StudentsDirectoryPage() {
   const params = useParams();
   const schoolSlug = (params?.schoolSlug as string) || "greenwood-high";
   const [search, setSearch] = React.useState("");
+  const [studentsList, setStudentsList] = React.useState<StudentItem[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
 
-  const filtered = DEMO_STUDENTS.filter(
+  React.useEffect(() => {
+    let isMounted = true;
+    setIsLoading(true);
+
+    erpApi
+      .getStudents()
+      .then((res) => {
+        if (!isMounted) return;
+        const dbStudents = res?.students || (Array.isArray(res) ? res : []);
+        if (Array.isArray(dbStudents)) {
+          const mapped: StudentItem[] = dbStudents
+            .filter((st: any) => st.id !== "student-alex-chen" && !st.id?.startsWith("demo-"))
+            .map((st: any) => ({
+            id: st.id,
+            admissionNo: st.admissionNumber || "Pending",
+            rollNo: st.rollNumber || "01",
+            name: `${st.firstName || ""} ${st.lastName || ""}`.trim() || "Student",
+            grade: st.gradeClass?.name
+              ? `${st.gradeClass.name}${st.section?.name ? ` - ${st.section.name}` : ""}`
+              : "Standard Grade",
+            gender: st.gender || "Not Specified",
+            parentName:
+              st.parent?.guardianName ||
+              st.parent?.fatherName ||
+              st.parent?.motherName ||
+              "Guardian",
+            phone:
+              st.parent?.phone ||
+              st.parent?.fatherPhone ||
+              st.parent?.motherPhone ||
+              "Not Provided",
+            attendanceRate: 98,
+            feeStatus: "PAID",
+            status: st.status || "ACTIVE",
+            photoUrl: st.studentPhotoUrl || st.photoUrl || null,
+          }));
+          setStudentsList(mapped);
+        } else {
+          setStudentsList([]);
+        }
+      })
+      .catch((err) => {
+        console.warn("Could not fetch students list from DB:", err);
+        if (isMounted) setStudentsList([]);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [schoolSlug]);
+
+  const filtered = studentsList.filter(
     (s) =>
       s.name.toLowerCase().includes(search.toLowerCase()) ||
       s.admissionNo.toLowerCase().includes(search.toLowerCase()) ||
-      s.rollNo.toLowerCase().includes(search.toLowerCase())
+      s.rollNo.toLowerCase().includes(search.toLowerCase()) ||
+      s.grade.toLowerCase().includes(search.toLowerCase()) ||
+      s.parentName.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Student Directory & 360 Hubs</h1>
-          <p className="text-xs text-zinc-400 font-mono mt-1">
-            FLOW #26: STUDENT — CENTRAL CONNECTION HUB LINKING ALL 14 SCHOOL DOMAINS
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
+            Student Directory & 360 Hubs
+          </h1>
+          <p className="text-xs text-zinc-500 font-mono mt-1">
+            FLOW #26: STUDENT DIRECTORY • DATABASE PERSISTENCE & CENTRAL 360 HUBS
           </p>
         </div>
 
-        <Link href={`/school/${schoolSlug}/admissions`}>
-          <Button size="sm" className="bg-white text-black hover:bg-zinc-200 text-xs">
+        <Link href={`/${schoolSlug}/admissions/new`}>
+          <Button
+            size="sm"
+            className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-mono"
+          >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
-            Admit New Student
+            New Admission
           </Button>
         </Link>
       </div>
 
-      <Card className="bg-zinc-900/50 border-zinc-800">
+      {/* Search Bar */}
+      <Card className="bg-white border-zinc-200 shadow-2xs">
         <CardContent className="p-4">
           <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
             <Input
               placeholder="Search by student name, roll number, admission number..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="bg-zinc-950 border-zinc-800 pl-9 text-xs text-white"
+              className="bg-white border-zinc-200 pl-9 text-xs text-zinc-950 placeholder:text-zinc-400 focus-visible:ring-zinc-950"
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card className="bg-zinc-900/60 border-zinc-800">
+      {/* Students Table */}
+      <Card className="bg-white border-zinc-200 shadow-2xs overflow-hidden">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
-              <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead>Admission No & Roll</TableHead>
-                <TableHead>Student Name</TableHead>
-                <TableHead>Class & Section</TableHead>
-                <TableHead>Parent / Guardian</TableHead>
-                <TableHead>Attendance Rate</TableHead>
-                <TableHead>Fee Clearance</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">360 Hub</TableHead>
+              <TableRow className="border-zinc-200 bg-zinc-50/70 hover:bg-zinc-50/70">
+                <TableHead className="text-xs text-zinc-700 font-semibold">Student</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Admission & Roll</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Class & Section</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Parent / Contact</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Attendance</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Fee Status</TableHead>
+                <TableHead className="text-xs text-zinc-700 font-semibold">Status</TableHead>
+                <TableHead className="text-right text-xs text-zinc-700 font-semibold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((st) => (
-                <TableRow key={st.id} className="border-zinc-800/60 hover:bg-zinc-900/40 text-xs">
-                  <TableCell>
-                    <div className="font-mono font-semibold text-white">{st.admissionNo}</div>
-                    <div className="text-[10px] text-zinc-500 font-mono">Roll: {st.rollNo}</div>
-                  </TableCell>
-                  <TableCell className="font-medium text-white">{st.name}</TableCell>
-                  <TableCell className="text-zinc-300">{st.grade}</TableCell>
-                  <TableCell>
-                    <div className="text-zinc-300">{st.parentName}</div>
-                    <div className="text-[10px] text-zinc-500 font-mono">{st.phone}</div>
-                  </TableCell>
-                  <TableCell className="font-mono text-zinc-200">{st.attendanceRate}%</TableCell>
-                  <TableCell>
-                    <Badge variant={st.feeStatus === "PAID" ? "contrast" : "subtle"} className="text-[10px]">
-                      {st.feeStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="contrast" className="text-[10px]">{st.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Link href={`/school/${schoolSlug}/students/${st.id}`}>
-                      <Button variant="outline" size="sm" className="h-7 text-xs border-zinc-700 hover:bg-zinc-800">
-                        <Eye className="h-3 w-3 mr-1" />
-                        Open 360° Hub
-                      </Button>
-                    </Link>
+              {isLoading ? (
+                // Clean Skeleton Loading Rows while receiving data from API
+                Array.from({ length: 4 }).map((_, i) => (
+                  <TableRow key={`skeleton-${i}`} className="border-zinc-200">
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full bg-zinc-100 animate-pulse shrink-0" />
+                        <div className="space-y-1.5">
+                          <div className="h-3.5 w-28 bg-zinc-100 rounded animate-pulse" />
+                          <div className="h-2.5 w-16 bg-zinc-100 rounded animate-pulse" />
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-3.5 w-24 bg-zinc-100 rounded animate-pulse mb-1" />
+                      <div className="h-2.5 w-14 bg-zinc-100 rounded animate-pulse" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-3.5 w-32 bg-zinc-100 rounded animate-pulse" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-3.5 w-24 bg-zinc-100 rounded animate-pulse mb-1" />
+                      <div className="h-2.5 w-20 bg-zinc-100 rounded animate-pulse" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-3.5 w-12 bg-zinc-100 rounded animate-pulse" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-5 w-14 bg-zinc-100 rounded-full animate-pulse" />
+                    </TableCell>
+                    <TableCell>
+                      <div className="h-5 w-14 bg-zinc-100 rounded-full animate-pulse" />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="h-7 w-20 bg-zinc-100 rounded animate-pulse ml-auto" />
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={8}
+                    className="text-center py-12 text-zinc-500 text-xs font-mono"
+                  >
+                    {search ? (
+                      <>No student records found matching "{search}".</>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-4">
+                        <Users className="h-8 w-8 text-zinc-300" />
+                        <div className="text-sm font-semibold text-zinc-900">
+                          No students registered yet
+                        </div>
+                        <p className="text-xs text-zinc-500 max-w-sm">
+                          No students found for this school. Submit a registration form to enroll a student.
+                        </p>
+                        <Link href={`/${schoolSlug}/admissions/new`} className="mt-2">
+                          <Button
+                            size="sm"
+                            className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-mono"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> New Admission
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filtered.map((st) => (
+                  <TableRow
+                    key={st.id}
+                    className="border-zinc-200 hover:bg-zinc-50/80 text-xs transition-colors"
+                  >
+                    {/* Student Name & Avatar */}
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full border border-zinc-300 overflow-hidden bg-zinc-100 flex items-center justify-center shrink-0">
+                          {st.photoUrl ? (
+                            <img
+                              src={st.photoUrl}
+                              alt={st.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <User className="h-4 w-4 text-zinc-500" />
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-zinc-950 text-xs flex items-center gap-1.5">
+                            {st.name}
+                            {st.gender && (
+                              <span className="text-[10px] text-zinc-400 font-normal">
+                                ({st.gender[0]})
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-zinc-500 font-mono">
+                            ID: {st.id.slice(0, 8)}...
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Admission & Roll */}
+                    <TableCell>
+                      <div className="font-mono font-semibold text-zinc-950">
+                        {st.admissionNo}
+                      </div>
+                      <div className="text-[10px] text-zinc-500 font-mono">
+                        Roll: {st.rollNo}
+                      </div>
+                    </TableCell>
+
+                    {/* Class & Section */}
+                    <TableCell>
+                      <div className="font-medium text-zinc-800">{st.grade}</div>
+                    </TableCell>
+
+                    {/* Parent */}
+                    <TableCell>
+                      <div className="text-zinc-800 font-medium">{st.parentName}</div>
+                      <div className="text-[10px] text-zinc-500 font-mono">{st.phone}</div>
+                    </TableCell>
+
+                    {/* Attendance */}
+                    <TableCell>
+                      <span className="font-mono text-zinc-900 font-medium">
+                        {st.attendanceRate}%
+                      </span>
+                    </TableCell>
+
+                    {/* Fee Clearance */}
+                    <TableCell>
+                      <Badge
+                        variant={st.feeStatus === "PAID" ? "contrast" : "subtle"}
+                        className="text-[10px] font-mono"
+                      >
+                        {st.feeStatus}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Badge variant="contrast" className="text-[10px] font-mono">
+                        {st.status}
+                      </Badge>
+                    </TableCell>
+
+                    {/* 360 Action */}
+                    <TableCell className="text-right">
+                      <Link href={`/${schoolSlug}/students/${st.id}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs border-zinc-200 hover:bg-zinc-100 font-mono"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          360° Hub
+                        </Button>
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>

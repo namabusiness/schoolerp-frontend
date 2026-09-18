@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   GraduationCap,
   Users,
+  UserPlus,
   CalendarCheck,
   BookOpen,
   FileCheck2,
@@ -58,10 +59,11 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
 
   const ACADEMIC_MODULES = [
     { title: "Campus Overview", url: `${basePath}/dashboard`, icon: LayoutDashboard },
-    { title: "Academic Setup", url: `${basePath}/academics`, icon: BookOpen },
+    { title: "New Admission", url: `${basePath}/admissions/new`, icon: UserPlus, badge: "NEW" },
     { title: "Admissions Pipeline", url: `${basePath}/admissions`, icon: GraduationCap },
     { title: "Document Vault & TC", url: `${basePath}/admissions?tab=vault`, icon: FileCheck2 },
     { title: "Students (360 Hub)", url: `${basePath}/students`, icon: Users },
+    { title: "Academic Setup", url: `${basePath}/academics`, icon: BookOpen },
     { title: "Daily Operations", url: `${basePath}/daily-ops`, icon: CalendarCheck },
     { title: "Attendance Engine", url: `${basePath}/attendance`, icon: FileCheck2 },
     { title: "Homework & Learning", url: `${basePath}/homework`, icon: BookOpen },
@@ -132,7 +134,18 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
             <SidebarMenu>
               {ACADEMIC_MODULES.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.url || (item.url !== `${basePath}/dashboard` && pathname?.startsWith(item.url));
+                const isNewAdmission = item.url === `${basePath}/admissions/new`;
+                const isAdmissionsPipeline = item.url === `${basePath}/admissions`;
+                let isActive = false;
+                if (isNewAdmission) {
+                  isActive = pathname === `${basePath}/admissions/new`;
+                } else if (isAdmissionsPipeline) {
+                  isActive = pathname === `${basePath}/admissions` && !pathname.includes("/new");
+                } else if (item.url === `${basePath}/dashboard`) {
+                  isActive = pathname === item.url;
+                } else {
+                  isActive = pathname === item.url || (pathname?.startsWith(`${item.url}/`) ?? false);
+                }
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
@@ -145,9 +158,16 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
                           : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
                       }
                     >
-                      <Link href={item.url}>
-                        <Icon className="size-4" />
-                        <span>{item.title}</span>
+                      <Link href={item.url} className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                          <Icon className="size-4 shrink-0" />
+                          <span>{item.title}</span>
+                        </div>
+                        {item.badge && (
+                          <span className="text-[9px] font-mono font-bold bg-zinc-900 text-white px-1.5 py-0.5 rounded">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

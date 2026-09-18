@@ -14,6 +14,15 @@ export default function SchoolLayout({
   const params = useParams();
   const schoolSlug = (params?.schoolSlug as string) || "greenwood-high";
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (!localStorage.getItem("demo_role")) {
+        localStorage.setItem("demo_role", "SCHOOL_ADMIN");
+      }
+      localStorage.setItem("school_id", schoolSlug);
+    }
+  }, [schoolSlug]);
+
   return (
     <SidebarProvider>
       <SchoolSidebar variant="inset" schoolSlug={schoolSlug} />
