@@ -64,6 +64,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { erpApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function TransportPage() {
   const [activeTab, setActiveTab] = React.useState("routes");
@@ -109,7 +110,32 @@ export default function TransportPage() {
   });
 
   const [expandedRosters, setExpandedRosters] = React.useState<Record<string, boolean>>({});
+  const [expandedRouteIds, setExpandedRouteIds] = React.useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = React.useState(false);
+
+  const toggleRouteAccordion = (routeId: string, defaultOpen: boolean = false) => {
+    setExpandedRouteIds((prev) => {
+      const current = prev[routeId] !== undefined ? prev[routeId] : defaultOpen;
+      return { ...prev, [routeId]: !current };
+    });
+  };
+
+  const expandAllRoutes = () => {
+    const all: Record<string, boolean> = {};
+    routes.forEach((r) => {
+      all[r.id] = true;
+    });
+    setExpandedRouteIds(all);
+  };
+
+  const collapseAllRoutes = () => {
+    const all: Record<string, boolean> = {};
+    routes.forEach((r) => {
+      all[r.id] = false;
+    });
+    setExpandedRouteIds(all);
+  };
+
 
   // Form States
   const [driverForm, setDriverForm] = React.useState({
@@ -691,25 +717,97 @@ export default function TransportPage() {
               </Button>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 gap-5">
-              {routes.map((route) => {
-                const isRosterExpanded = expandedRosters[route.id] !== false;
-                const studentCount = route.studentAssignments?.length || route._count?.studentAssignments || 0;
-                const capacity = Number(route.vehicle?.capacity || 40);
-                const occupancyPercent = Math.min(100, Math.round((studentCount / capacity) * 100));
+            <div className="space-y-4">
+              {/* Accordion Controls Toolbar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-zinc-50/80 border border-zinc-200 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-zinc-900">
+                    Active Transport Routes ({routes.length})
+                  </span>
+                  <span className="text-[11px] text-zinc-500 hidden sm:inline">
+                    • Click any route card header to expand or collapse details
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={expandAllRoutes}
+                    className="h-7 px-2.5 text-[11px] border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-medium"
+                  >
+                    Expand All
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={collapseAllRoutes}
+                    className="h-7 px-2.5 text-[11px] border-zinc-300 text-zinc-700 hover:bg-zinc-100 font-medium"
+                  >
+                    Collapse All
+                  </Button>
+                  {canManageAssignments && (
+                    <Button
+                      size="sm"
+                      onClick={() => setIsAddRouteOpen(true)}
+                      className="h-7 px-2.5 text-[11px] bg-zinc-950 text-white hover:bg-zinc-800 font-medium ml-1"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> New Route
+                    </Button>
+                  )}
+                </div>
+              </div>
 
-                return (
-                  <Card key={route.id} className="bg-white border-zinc-200 shadow-2xs overflow-hidden">
-                    {/* Route Card Top Bar */}
-                    <CardHeader className="pb-3 border-b border-zinc-100 bg-zinc-50/40">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-start sm:items-center gap-3">
-                          <div className="p-2.5 rounded-lg bg-zinc-900 text-white shrink-0">
-                            <Bus className="h-5 w-5" />
+              {/* Accordion Route Cards */}
+              <div className="grid grid-cols-1 gap-3">
+                {routes.map((route, idx) => {
+                  const isRouteExpanded =
+                    expandedRouteIds[route.id] !== undefined
+                      ? expandedRouteIds[route.id]
+                      : idx === 0;
+                  const isRosterExpanded = expandedRosters[route.id] !== false;
+                  const studentCount = route.studentAssignments?.length || route._count?.studentAssignments || 0;
+                  const capacity = Number(route.vehicle?.capacity || 40);
+                  const occupancyPercent = Math.min(100, Math.round((studentCount / capacity) * 100));
+
+                  return (
+                    <Card
+                      key={route.id}
+                      className={cn(
+                        "bg-white border-zinc-200 shadow-2xs overflow-hidden transition-all duration-200",
+                        isRouteExpanded ? "border-zinc-300 shadow-xs" : "hover:border-zinc-300 hover:bg-zinc-50/30"
+                      )}
+                    >
+                      {/* Accordion Trigger Header */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isRouteExpanded}
+                        onClick={() => toggleRouteAccordion(route.id, idx === 0)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            toggleRouteAccordion(route.id, idx === 0);
+                          }
+                        }}
+                        className={cn(
+                          "p-3.5 sm:p-4 cursor-pointer select-none transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3",
+                          isRouteExpanded ? "bg-zinc-50/60 border-b border-zinc-200" : "bg-white"
+                        )}
+                      >
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          <div
+                            className={cn(
+                              "p-2.5 rounded-lg shrink-0 transition-colors",
+                              isRouteExpanded
+                                ? "bg-zinc-900 text-white"
+                                : "bg-zinc-100 text-zinc-700"
+                            )}
+                          >
+                            <Bus className="h-4.5 w-4.5" />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-base text-zinc-950">{route.name}</span>
+                              <span className="font-bold text-base text-zinc-950 truncate">{route.name}</span>
                               {route.code && (
                                 <Badge variant="outline" className="text-[10px] font-mono border-zinc-300 bg-white">
                                   {route.code}
@@ -725,6 +823,19 @@ export default function TransportPage() {
                               >
                                 {studentCount} / {capacity} Seats ({occupancyPercent}%)
                               </Badge>
+                              <Badge variant="secondary" className="text-[10px] font-mono bg-zinc-100 text-zinc-700 border-zinc-200">
+                                {route.stops?.length || 0} Stops
+                              </Badge>
+                              {route.inchargeStaff ? (
+                                <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-normal hover:bg-emerald-50">
+                                  <GraduationCap className="h-3 w-3 mr-1 text-emerald-600" />
+                                  {route.inchargeStaff.name}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-zinc-400 border-zinc-200 text-[10px] font-normal">
+                                  No Incharge
+                                </Badge>
+                              )}
                             </div>
                             <div className="text-[11px] text-zinc-500 flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                               {route.startLocation && route.endLocation && (
@@ -745,12 +856,17 @@ export default function TransportPage() {
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                        {/* Actions + Accordion Chevron Toggle */}
+                        <div
+                          className="flex items-center gap-2 shrink-0 self-end sm:self-center"
+                          onClick={(e) => e.stopPropagation()}
+                        >
                           {canManageAssignments && (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 setSelectedRouteForStop(route);
                                 setIsAddStopOpen(true);
                               }}
@@ -763,295 +879,317 @@ export default function TransportPage() {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDeleteRoute(route.id, route.name)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteRoute(route.id, route.name);
+                              }}
                               className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50"
                               title="Delete Route"
                             >
                               <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           )}
+                          <div
+                            role="button"
+                            title={isRouteExpanded ? "Collapse route details" : "Expand route details"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRouteAccordion(route.id, idx === 0);
+                            }}
+                            className="h-7 w-7 rounded-md flex items-center justify-center border border-zinc-200 bg-white text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100 transition-colors cursor-pointer ml-1"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 transition-transform duration-200",
+                                isRouteExpanded && "rotate-180"
+                              )}
+                            />
+                          </div>
                         </div>
                       </div>
-                    </CardHeader>
 
-                    <CardContent className="p-4 space-y-4">
-                      {/* 1. FACULTY INCHARGE SECTION */}
-                      <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-lg shrink-0 ${route.inchargeStaff ? "bg-emerald-100 text-emerald-800" : "bg-zinc-200 text-zinc-600"}`}>
-                            <GraduationCap className="h-4 w-4" />
-                          </div>
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[10px] font-mono tracking-wider text-zinc-500 uppercase font-semibold">
-                                Faculty Incharge
-                              </span>
-                              {route.inchargeStaff ? (
-                                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[9px] px-1.5 py-0">
-                                  Assigned
-                                </Badge>
+                      {/* Accordion Expanded Content */}
+                      {isRouteExpanded && (
+                        <CardContent className="p-4 space-y-4 animate-in fade-in-50 duration-150">
+                          {/* 1. FACULTY INCHARGE SECTION */}
+                          <div className="p-3 rounded-lg border border-zinc-200 bg-zinc-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg shrink-0 ${route.inchargeStaff ? "bg-emerald-100 text-emerald-800" : "bg-zinc-200 text-zinc-600"}`}>
+                                <GraduationCap className="h-4 w-4" />
+                              </div>
+                              <div className="space-y-0.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono tracking-wider text-zinc-500 uppercase font-semibold">
+                                    Faculty Incharge
+                                  </span>
+                                  {route.inchargeStaff ? (
+                                    <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white text-[9px] px-1.5 py-0">
+                                      Assigned
+                                    </Badge>
+                                  ) : (
+                                    <Badge variant="outline" className="text-zinc-500 border-zinc-300 text-[9px] px-1.5 py-0 bg-white">
+                                      Not Assigned
+                                    </Badge>
+                                  )}
+                                </div>
+                                {route.inchargeStaff ? (
+                                  <div className="text-xs">
+                                    <span className="font-bold text-zinc-950 mr-2">{route.inchargeStaff.name}</span>
+                                    <span className="text-zinc-500 mr-2">• {route.inchargeStaff.designation || "Faculty"}</span>
+                                    {route.inchargeStaff.phone && (
+                                      <span className="text-zinc-600 font-mono text-[11px] inline-flex items-center gap-1">
+                                        <Phone className="h-2.5 w-2.5 text-zinc-400" />
+                                        {route.inchargeStaff.phone}
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-zinc-500 italic">
+                                    No faculty appointed for bus safety and passenger discipline.
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                              {canManageAssignments ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setSelectedRouteForIncharge(route);
+                                      setSelectedInchargeStaffId(route.inchargeStaffId || "NONE");
+                                      setIsAssignInchargeOpen(true);
+                                    }}
+                                    className="h-7 px-2.5 text-[11px] border-zinc-300 hover:bg-zinc-100 font-medium"
+                                  >
+                                    <UserCheck className="h-3 w-3 mr-1 text-zinc-700" />
+                                    {route.inchargeStaff ? "Change Incharge" : "Appoint Incharge"}
+                                  </Button>
+                                  {route.inchargeStaff && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={async () => {
+                                        if (confirm(`Remove incharge faculty for "${route.name}"?`)) {
+                                          await erpApi.updateRouteIncharge(route.id, null);
+                                          showToast("Faculty incharge removed.");
+                                          await loadData();
+                                        }
+                                      }}
+                                      className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 text-[11px]"
+                                      title="Remove Incharge"
+                                    >
+                                      Remove
+                                    </Button>
+                                  )}
+                                </>
                               ) : (
-                                <Badge variant="outline" className="text-zinc-500 border-zinc-300 text-[9px] px-1.5 py-0 bg-white">
-                                  Not Assigned
+                                <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-300 font-mono gap-1 bg-white">
+                                  <Lock className="h-2.5 w-2.5 text-amber-600" />
+                                  Principal / Transport Mgr Only
                                 </Badge>
                               )}
                             </div>
-                            {route.inchargeStaff ? (
-                              <div className="text-xs">
-                                <span className="font-bold text-zinc-950 mr-2">{route.inchargeStaff.name}</span>
-                                <span className="text-zinc-500 mr-2">• {route.inchargeStaff.designation || "Faculty"}</span>
-                                {route.inchargeStaff.phone && (
-                                  <span className="text-zinc-600 font-mono text-[11px] inline-flex items-center gap-1">
-                                    <Phone className="h-2.5 w-2.5 text-zinc-400" />
-                                    {route.inchargeStaff.phone}
-                                  </span>
-                                )}
+                          </div>
+
+                          {/* 2. STOPS SEQUENCE */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between text-xs text-zinc-600">
+                              <span className="font-semibold text-zinc-900 flex items-center gap-1.5">
+                                <MapPin className="h-3.5 w-3.5 text-zinc-500" />
+                                Stops Corridor Sequence ({route.stops?.length || 0}):
+                              </span>
+                            </div>
+
+                            {(!route.stops || route.stops.length === 0) ? (
+                              <div className="p-3 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 text-center text-xs text-zinc-400">
+                                No stops added yet. Click &quot;Add Stop&quot; to configure route pickup points.
                               </div>
                             ) : (
-                              <div className="text-xs text-zinc-500 italic">
-                                No faculty appointed for bus safety and passenger discipline.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                          {canManageAssignments ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setSelectedRouteForIncharge(route);
-                                  setSelectedInchargeStaffId(route.inchargeStaffId || "NONE");
-                                  setIsAssignInchargeOpen(true);
-                                }}
-                                className="h-7 px-2.5 text-[11px] border-zinc-300 hover:bg-zinc-100 font-medium"
-                              >
-                                <UserCheck className="h-3 w-3 mr-1 text-zinc-700" />
-                                {route.inchargeStaff ? "Change Incharge" : "Appoint Incharge"}
-                              </Button>
-                              {route.inchargeStaff && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={async () => {
-                                    if (confirm(`Remove incharge faculty for "${route.name}"?`)) {
-                                      await erpApi.updateRouteIncharge(route.id, null);
-                                      showToast("Faculty incharge removed.");
-                                      await loadData();
-                                    }
-                                  }}
-                                  className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 text-[11px]"
-                                  title="Remove Incharge"
-                                >
-                                  Remove
-                                </Button>
-                              )}
-                            </>
-                          ) : (
-                            <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-300 font-mono gap-1 bg-white">
-                              <Lock className="h-2.5 w-2.5 text-amber-600" />
-                              Principal / Transport Mgr Only
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* 2. STOPS SEQUENCE */}
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-xs text-zinc-600">
-                          <span className="font-semibold text-zinc-900 flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5 text-zinc-500" />
-                            Stops Corridor Sequence ({route.stops?.length || 0}):
-                          </span>
-                        </div>
-
-                        {(!route.stops || route.stops.length === 0) ? (
-                          <div className="p-3 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 text-center text-xs text-zinc-400">
-                            No stops added yet. Click &quot;Add Stop&quot; to configure route pickup points.
-                          </div>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                            {route.stops.map((stop: any, idx: number) => (
-                              <div
-                                key={stop.id}
-                                className="p-2.5 rounded-lg border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50 flex items-start justify-between gap-2 text-xs"
-                              >
-                                <div className="space-y-0.5 min-w-0">
-                                  <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
-                                    <span className="h-4 w-4 rounded-full bg-zinc-200 text-zinc-700 text-[10px] flex items-center justify-center shrink-0 font-mono">
-                                      {stop.stopOrder || idx + 1}
-                                    </span>
-                                    <span className="truncate">{stop.stopName}</span>
-                                  </div>
-                                  <div className="text-[11px] font-mono text-zinc-500 pl-5">
-                                    Pick: {stop.pickupTime} • Drop: {stop.dropTime}
-                                  </div>
-                                  {stop.landmark && (
-                                    <div className="text-[10px] text-zinc-400 pl-5 truncate">
-                                      Near: {stop.landmark}
-                                    </div>
-                                  )}
-                                </div>
-
-                                {canManageAssignments && (
-                                  <button
-                                    onClick={() => handleDeleteStop(route.id, stop.id, stop.stopName)}
-                                    className="text-zinc-300 hover:text-red-600 p-1 shrink-0 transition-colors"
-                                    title="Delete Stop"
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                                {route.stops.map((stop: any, idx: number) => (
+                                  <div
+                                    key={stop.id}
+                                    className="p-2.5 rounded-lg border border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50 flex items-start justify-between gap-2 text-xs"
                                   >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                )}
+                                    <div className="space-y-0.5 min-w-0">
+                                      <div className="flex items-center gap-1.5 font-semibold text-zinc-900">
+                                        <span className="h-4 w-4 rounded-full bg-zinc-200 text-zinc-700 text-[10px] flex items-center justify-center shrink-0 font-mono">
+                                          {stop.stopOrder || idx + 1}
+                                        </span>
+                                        <span className="truncate">{stop.stopName}</span>
+                                      </div>
+                                      <div className="text-[11px] font-mono text-zinc-500 pl-5">
+                                        Pick: {stop.pickupTime} • Drop: {stop.dropTime}
+                                      </div>
+                                      {stop.landmark && (
+                                        <div className="text-[10px] text-zinc-400 pl-5 truncate">
+                                          Near: {stop.landmark}
+                                        </div>
+                                      )}
+                                    </div>
+
+                                    {canManageAssignments && (
+                                      <button
+                                        onClick={() => handleDeleteStop(route.id, stop.id, stop.stopName)}
+                                        className="text-zinc-300 hover:text-red-600 p-1 shrink-0 transition-colors"
+                                        title="Delete Stop"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 3. STUDENT PASSENGER ROSTER */}
-                      <div className="border border-zinc-200 rounded-lg overflow-hidden bg-white">
-                        <div className="px-3.5 py-2.5 bg-zinc-100/70 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => toggleRoster(route.id)}
-                              className="flex items-center gap-1.5 text-xs font-bold text-zinc-950 hover:text-zinc-700"
-                            >
-                              {isRosterExpanded ? (
-                                <ChevronUp className="h-3.5 w-3.5 text-zinc-500" />
-                              ) : (
-                                <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />
-                              )}
-                              Student Passenger Roster ({route.studentAssignments?.length || 0})
-                            </button>
-                            <span className="text-[11px] font-mono text-zinc-500">
-                              • {capacity - studentCount} seats available
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            {canManageAssignments ? (
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedRouteForStudent(route);
-                                  setStudentAssignForm({
-                                    studentId: "",
-                                    stopId: route.stops?.[0]?.id || "",
-                                  });
-                                  setIsAssignStudentOpen(true);
-                                }}
-                                disabled={!route.stops || route.stops.length === 0}
-                                className="h-7 px-2.5 text-[11px] bg-zinc-950 text-white hover:bg-zinc-800 font-semibold"
-                              >
-                                <UserPlus className="h-3 w-3 mr-1" />
-                                Assign Student
-                              </Button>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-300 font-mono gap-1 bg-white">
-                                <Lock className="h-2.5 w-2.5 text-amber-600" />
-                                Principal / Transport Mgr Only
-                              </Badge>
                             )}
                           </div>
-                        </div>
 
-                        {isRosterExpanded && (
-                          <div className="p-0">
-                            {(!route.studentAssignments || route.studentAssignments.length === 0) ? (
-                              <div className="p-4 text-center text-xs text-zinc-400 space-y-1">
-                                <Users className="h-5 w-5 mx-auto text-zinc-300" />
-                                <div>No students currently assigned to this bus route.</div>
-                                <div className="text-[11px] text-zinc-400">
-                                  {canManageAssignments
-                                    ? "Click 'Assign Student' above to designate pickup stop and seat allocation."
-                                    : "Assignments can be configured by Principal or Transport Manager."}
-                                </div>
+                          {/* 3. STUDENT PASSENGER ROSTER */}
+                          <div className="border border-zinc-200 rounded-lg overflow-hidden bg-white">
+                            <div className="px-3.5 py-2.5 bg-zinc-100/70 border-b border-zinc-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => toggleRoster(route.id)}
+                                  className="flex items-center gap-1.5 text-xs font-bold text-zinc-950 hover:text-zinc-700"
+                                >
+                                  {isRosterExpanded ? (
+                                    <ChevronUp className="h-3.5 w-3.5 text-zinc-500" />
+                                  ) : (
+                                    <ChevronDown className="h-3.5 w-3.5 text-zinc-500" />
+                                  )}
+                                  Student Passenger Roster ({route.studentAssignments?.length || 0})
+                                </button>
+                                <span className="text-[11px] font-mono text-zinc-500">
+                                  • {capacity - studentCount} seats available
+                                </span>
                               </div>
-                            ) : (
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="border-b border-zinc-100 bg-zinc-50/50 text-[10px]">
-                                    <TableHead className="py-2 text-[10px] font-mono text-zinc-500">STUDENT NAME & ID</TableHead>
-                                    <TableHead className="py-2 text-[10px] font-mono text-zinc-500">CLASS / SECTION</TableHead>
-                                    <TableHead className="py-2 text-[10px] font-mono text-zinc-500">BOARDING STOP</TableHead>
-                                    <TableHead className="py-2 text-[10px] font-mono text-zinc-500">PARENT CONTACT</TableHead>
-                                    {canManageAssignments && (
-                                      <TableHead className="py-2 text-[10px] font-mono text-zinc-500 text-right">ACTION</TableHead>
-                                    )}
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {route.studentAssignments.map((assignment: any) => {
-                                    const st = assignment.student;
-                                    const studentName = st ? `${st.firstName} ${st.lastName || ""}`.trim() : "Student";
-                                    return (
-                                      <TableRow key={assignment.id || assignment.studentId} className="border-b border-zinc-100 text-xs">
-                                        <TableCell className="py-2">
-                                          <div className="font-semibold text-zinc-950">{studentName}</div>
-                                          <div className="text-[10px] font-mono text-zinc-500">
-                                            Adm: {st?.admissionNumber || "N/A"}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="py-2">
-                                          <Badge variant="outline" className="text-[10px] font-mono border-zinc-300">
-                                            {st?.gradeClass?.name || "Class"} {st?.section?.name ? `- ${st.section.name}` : ""}
-                                          </Badge>
-                                        </TableCell>
-                                        <TableCell className="py-2">
-                                          <div className="font-medium text-zinc-900 flex items-center gap-1">
-                                            <MapPin className="h-3 w-3 text-zinc-400 shrink-0" />
-                                            <span>{assignment.stop?.stopName || "Corridor Stop"}</span>
-                                          </div>
-                                          {assignment.stop?.pickupTime && (
-                                            <div className="text-[10px] font-mono text-zinc-500 pl-4">
-                                              Pick: {assignment.stop.pickupTime} • Drop: {assignment.stop.dropTime}
-                                            </div>
-                                          )}
-                                        </TableCell>
-                                        <TableCell className="py-2">
-                                          {st?.parent?.phone ? (
-                                            <div className="font-mono text-[11px] text-zinc-700 flex items-center gap-1">
-                                              <Phone className="h-2.5 w-2.5 text-zinc-400" />
-                                              {st.parent.phone}
-                                            </div>
-                                          ) : (
-                                            <span className="text-zinc-400 text-[11px] italic">Not registered</span>
-                                          )}
-                                          {(st?.parent?.fatherName || st?.parent?.motherName) && (
-                                            <div className="text-[10px] text-zinc-400">
-                                              {st?.parent?.fatherName || st?.parent?.motherName}
-                                            </div>
-                                          )}
-                                        </TableCell>
+
+                              <div className="flex items-center gap-2">
+                                {canManageAssignments ? (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedRouteForStudent(route);
+                                      setStudentAssignForm({
+                                        studentId: "",
+                                        stopId: route.stops?.[0]?.id || "",
+                                      });
+                                      setIsAssignStudentOpen(true);
+                                    }}
+                                    disabled={!route.stops || route.stops.length === 0}
+                                    className="h-7 px-2.5 text-[11px] bg-zinc-950 text-white hover:bg-zinc-800 font-semibold"
+                                  >
+                                    <UserPlus className="h-3 w-3 mr-1" />
+                                    Assign Student
+                                  </Button>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] text-zinc-500 border-zinc-300 font-mono gap-1 bg-white">
+                                    <Lock className="h-2.5 w-2.5 text-amber-600" />
+                                    Principal / Transport Mgr Only
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            {isRosterExpanded && (
+                              <div className="p-0">
+                                {(!route.studentAssignments || route.studentAssignments.length === 0) ? (
+                                  <div className="p-4 text-center text-xs text-zinc-400 space-y-1">
+                                    <Users className="h-5 w-5 mx-auto text-zinc-300" />
+                                    <div>No students currently assigned to this bus route.</div>
+                                    <div className="text-[11px] text-zinc-400">
+                                      {canManageAssignments
+                                        ? "Click 'Assign Student' above to designate pickup stop and seat allocation."
+                                        : "Assignments can be configured by Principal or Transport Manager."}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow className="border-b border-zinc-100 bg-zinc-50/50 text-[10px]">
+                                        <TableHead className="py-2 text-[10px] font-mono text-zinc-500">STUDENT NAME & ID</TableHead>
+                                        <TableHead className="py-2 text-[10px] font-mono text-zinc-500">CLASS / SECTION</TableHead>
+                                        <TableHead className="py-2 text-[10px] font-mono text-zinc-500">BOARDING STOP</TableHead>
+                                        <TableHead className="py-2 text-[10px] font-mono text-zinc-500">PARENT CONTACT</TableHead>
                                         {canManageAssignments && (
-                                          <TableCell className="py-2 text-right">
-                                            <Button
-                                              size="sm"
-                                              variant="ghost"
-                                              onClick={() => handleUnassignStudent(st?.id || assignment.studentId, studentName)}
-                                              className="h-6 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 text-[11px]"
-                                              title="Unassign Student"
-                                            >
-                                              <UserX className="h-3.5 w-3.5 mr-1" />
-                                              Unassign
-                                            </Button>
-                                          </TableCell>
+                                          <TableHead className="py-2 text-[10px] font-mono text-zinc-500 text-right">ACTION</TableHead>
                                         )}
                                       </TableRow>
-                                    );
-                                  })}
-                                </TableBody>
-                              </Table>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {route.studentAssignments.map((assignment: any) => {
+                                        const st = assignment.student;
+                                        const studentName = st ? `${st.firstName} ${st.lastName || ""}`.trim() : "Student";
+                                        return (
+                                          <TableRow key={assignment.id || assignment.studentId} className="border-b border-zinc-100 text-xs">
+                                            <TableCell className="py-2">
+                                              <div className="font-semibold text-zinc-950">{studentName}</div>
+                                              <div className="text-[10px] font-mono text-zinc-500">
+                                                Adm: {st?.admissionNumber || "N/A"}
+                                              </div>
+                                            </TableCell>
+                                            <TableCell className="py-2">
+                                              <Badge variant="outline" className="text-[10px] font-mono border-zinc-300">
+                                                {st?.gradeClass?.name || "Class"} {st?.section?.name ? `- ${st.section.name}` : ""}
+                                              </Badge>
+                                            </TableCell>
+                                            <TableCell className="py-2">
+                                              <div className="font-medium text-zinc-900 flex items-center gap-1">
+                                                <MapPin className="h-3 w-3 text-zinc-400 shrink-0" />
+                                                <span>{assignment.stop?.stopName || "Corridor Stop"}</span>
+                                              </div>
+                                              {assignment.stop?.pickupTime && (
+                                                <div className="text-[10px] font-mono text-zinc-500 pl-4">
+                                                  Pick: {assignment.stop.pickupTime} • Drop: {assignment.stop.dropTime}
+                                                </div>
+                                              )}
+                                            </TableCell>
+                                            <TableCell className="py-2">
+                                              {st?.parent?.phone ? (
+                                                <div className="font-mono text-[11px] text-zinc-700 flex items-center gap-1">
+                                                  <Phone className="h-2.5 w-2.5 text-zinc-400" />
+                                                  {st.parent.phone}
+                                                </div>
+                                              ) : (
+                                                <span className="text-zinc-400 text-[11px] italic">Not registered</span>
+                                              )}
+                                              {(st?.parent?.fatherName || st?.parent?.motherName) && (
+                                                <div className="text-[10px] text-zinc-400">
+                                                  {st?.parent?.fatherName || st?.parent?.motherName}
+                                                </div>
+                                              )}
+                                            </TableCell>
+                                            {canManageAssignments && (
+                                              <TableCell className="py-2 text-right">
+                                                <Button
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onClick={() => handleUnassignStudent(st?.id || assignment.studentId, studentName)}
+                                                  className="h-6 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 text-[11px]"
+                                                  title="Unassign Student"
+                                                >
+                                                  <UserX className="h-3.5 w-3.5 mr-1" />
+                                                  Unassign
+                                                </Button>
+                                              </TableCell>
+                                            )}
+                                          </TableRow>
+                                        );
+                                      })}
+                                    </TableBody>
+                                  </Table>
+                                )}
+                              </div>
                             )}
                           </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                        </CardContent>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>
