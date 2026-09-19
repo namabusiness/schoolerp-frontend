@@ -16,6 +16,18 @@ const config: Config = {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			sans: [
+  				'Satoshi',
+  				'Inter',
+  				'-apple-system',
+  				'BlinkMacSystemFont',
+  				'"Segoe UI"',
+  				'Roboto',
+  				'sans-serif'
+  			],
+  			satoshi: ['Satoshi', 'sans-serif'],
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
