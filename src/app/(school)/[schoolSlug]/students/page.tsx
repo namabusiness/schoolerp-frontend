@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Users, Search, Eye, Plus, User, Loader2 } from "lucide-react";
+import { Users, Search, Eye, Plus, User, Loader2, CheckCircle2, Upload } from "lucide-react";
 import { erpApi } from "@/lib/api";
 
 interface StudentItem {
@@ -37,6 +37,7 @@ interface StudentItem {
   feeStatus: string;
   status: string;
   photoUrl?: string | null;
+  documentsCount?: number;
 }
 
 export default function StudentsDirectoryPage() {
@@ -81,6 +82,7 @@ export default function StudentsDirectoryPage() {
             feeStatus: "PAID",
             status: st.status || "ACTIVE",
             photoUrl: st.studentPhotoUrl || st.photoUrl || null,
+            documentsCount: st.documents?.length || 0,
           }));
           setStudentsList(mapped);
         } else {
@@ -306,11 +308,26 @@ export default function StudentsDirectoryPage() {
                       </Badge>
                     </TableCell>
 
-                    {/* Status */}
+                    {/* Status & Compliance */}
                     <TableCell>
-                      <Badge variant="contrast" className="text-[10px] font-mono">
-                        {st.status}
-                      </Badge>
+                      <div className="space-y-1">
+                        <Badge variant="contrast" className="text-[10px] font-mono">
+                          {st.status}
+                        </Badge>
+                        {st.documentsCount && st.documentsCount >= 3 ? (
+                          <div className="text-[10px] font-mono text-emerald-700 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                            <span>Docs Complete</span>
+                          </div>
+                        ) : (
+                          <Link href={`/${schoolSlug}/students/${st.id}`}>
+                            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded hover:bg-amber-100 cursor-pointer">
+                              <Upload className="h-2.5 w-2.5 text-amber-700" />
+                              Upload Docs
+                            </span>
+                          </Link>
+                        )}
+                      </div>
                     </TableCell>
 
                     {/* 360 Action */}

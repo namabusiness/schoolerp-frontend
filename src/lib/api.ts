@@ -82,6 +82,8 @@ export const erpApi = {
   // Students 360
   getStudents: (params?: any) => fetchApi(`/students?${new URLSearchParams(params || {})}`),
   getStudent360: (studentId: string) => fetchApi(`/students/${studentId}/360`),
+  uploadStudentDocument: (studentId: string, data: any) =>
+    fetchApi(`/students/${studentId}/documents`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Daily Ops & Attendance
   getDailyOverview: () => fetchApi('/daily-ops/overview'),
