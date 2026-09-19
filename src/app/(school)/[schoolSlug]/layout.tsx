@@ -19,7 +19,8 @@ export default function SchoolLayout({
       if (!localStorage.getItem("demo_role")) {
         localStorage.setItem("demo_role", "SCHOOL_ADMIN");
       }
-      localStorage.setItem("school_id", schoolSlug);
+      const targetSchoolId = schoolSlug === "greenwood-high" ? "school-greenwood-high" : schoolSlug;
+      localStorage.setItem("school_id", targetSchoolId);
     }
   }, [schoolSlug]);
 

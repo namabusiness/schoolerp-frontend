@@ -6,7 +6,10 @@ export async function fetchApi<T = any>(
 ): Promise<T> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const activeRole = typeof window !== 'undefined' ? localStorage.getItem('demo_role') : options.demoRole;
-  const activeSchoolId = typeof window !== 'undefined' ? localStorage.getItem('school_id') : options.schoolId;
+  let activeSchoolId = typeof window !== 'undefined' ? localStorage.getItem('school_id') : options.schoolId;
+  if (activeSchoolId === 'greenwood-high') {
+    activeSchoolId = 'school-greenwood-high';
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -58,6 +61,11 @@ export const erpApi = {
     fetchApi(`/super-admin/schools?${new URLSearchParams({ ...(status && { status }), ...(search && { search }) })}`),
   createSchool: (data: any) => fetchApi('/super-admin/schools', { method: 'POST', body: JSON.stringify(data) }),
   getSchoolAdmins: () => fetchApi('/super-admin/administrators'),
+  getPlatformUsers: (role?: string, schoolId?: string) =>
+    fetchApi(`/super-admin/users?${new URLSearchParams({ ...(role && { role }), ...(schoolId && { schoolId }) })}`),
+  setupUserAccess: (data: any) => fetchApi('/super-admin/users/setup-access', { method: 'POST', body: JSON.stringify(data) }),
+  toggleUserStatus: (id: string, isActive: boolean) =>
+    fetchApi(`/super-admin/users/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) }),
   createSupportSession: (schoolId: string, reason: string) =>
     fetchApi('/super-admin/support-session', { method: 'POST', body: JSON.stringify({ schoolId, reason }) }),
   getAuditLogs: (params?: any) => fetchApi('/super-admin/audit-logs', { method: 'GET' }),
@@ -115,23 +123,35 @@ export const erpApi = {
   getInvoices: () => fetchApi('/fees/invoices'),
   recordFeePayment: (data: any) => fetchApi('/fees/payments', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Transport
+  // Transport & Fleet Management
+  getDrivers: () => fetchApi('/transport/drivers'),
+  createDriver: (data: any) => fetchApi('/transport/drivers', { method: 'POST', body: JSON.stringify(data) }),
+  deleteDriver: (id: string) => fetchApi(`/transport/drivers/${id}`, { method: 'DELETE' }),
   getVehicles: () => fetchApi('/transport/vehicles'),
+  createVehicle: (data: any) => fetchApi('/transport/vehicles', { method: 'POST', body: JSON.stringify(data) }),
+  deleteVehicle: (id: string) => fetchApi(`/transport/vehicles/${id}`, { method: 'DELETE' }),
   getRoutes: () => fetchApi('/transport/routes'),
+  createRoute: (data: any) => fetchApi('/transport/routes', { method: 'POST', body: JSON.stringify(data) }),
+  deleteRoute: (id: string) => fetchApi(`/transport/routes/${id}`, { method: 'DELETE' }),
+  addRouteStop: (routeId: string, data: any) =>
+    fetchApi(`/transport/routes/${routeId}/stops`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteRouteStop: (routeId: string, stopId: string) =>
+    fetchApi(`/transport/routes/${routeId}/stops/${stopId}`, { method: 'DELETE' }),
+  assignStudent: (data: { studentId: string; routeId: string; stopId: string }) =>
+    fetchApi('/transport/assign-student', { method: 'POST', body: JSON.stringify(data) }),
+  unassignStudent: (studentId: string) =>
+    fetchApi(`/transport/unassign-student/${studentId}`, { method: 'DELETE' }),
+  updateRouteIncharge: (routeId: string, inchargeStaffId: string | null) =>
+    fetchApi(`/transport/routes/${routeId}/incharge`, { method: 'PATCH', body: JSON.stringify({ inchargeStaffId }) }),
   getTrips: () => fetchApi('/transport/trips'),
+  logTrip: (data: any) => fetchApi('/transport/trips', { method: 'POST', body: JSON.stringify(data) }),
 
-  // Library
-  getBooks: (search?: string) => fetchApi(`/library/catalogue${search ? `?search=${search}` : ''}`),
-  getLoans: () => fetchApi('/library/loans'),
-  issueBook: (data: any) => fetchApi('/library/issue', { method: 'POST', body: JSON.stringify(data) }),
-  returnBook: (loanId: string) => fetchApi(`/library/loans/${loanId}/return`, { method: 'POST' }),
-
-  // Communication
-  getAnnouncements: () => fetchApi('/communication/announcements'),
-  createAnnouncement: (data: any) => fetchApi('/communication/announcements', { method: 'POST', body: JSON.stringify(data) }),
-
-  // HR & Staff
-  getStaff: () => fetchApi('/hr/staff'),
+  // HR & Staff / Faculty
+  getStaff: (departmentId?: string) => fetchApi(`/hr/staff${departmentId ? `?departmentId=${departmentId}` : ''}`),
+  addStaff: (data: any) => fetchApi('/hr/staff', { method: 'POST', body: JSON.stringify(data) }),
+  deleteStaff: (id: string) => fetchApi(`/hr/staff/${id}`, { method: 'DELETE' }),
+  getDepartments: () => fetchApi('/hr/departments'),
+  createDepartment: (name: string) => fetchApi('/hr/departments', { method: 'POST', body: JSON.stringify({ name }) }),
   getLeaves: () => fetchApi('/hr/leaves'),
   applyLeave: (data: any) => fetchApi('/hr/leaves', { method: 'POST', body: JSON.stringify(data) }),
   runPayroll: (month: number, year: number) =>

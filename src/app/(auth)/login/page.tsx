@@ -29,9 +29,18 @@ import {
   Users,
   KeyRound,
   ArrowRight,
-  CheckCircle2,
+  Bus,
+  Compass,
+  BookOpen,
 } from "lucide-react";
 import { erpApi } from "@/lib/api";
+
+const SCHOOL_ROLES = [
+  { id: "SCHOOL_ADMIN", label: "Admin", icon: Building2, defaultEmail: "admin@greenwoodhigh.edu", path: "/greenwood-high/dashboard" },
+  { id: "TEACHER", label: "Teacher", icon: BookOpen, defaultEmail: "teacher@greenwoodhigh.edu", path: "/greenwood-high/academics" },
+  { id: "TRANSPORT_MANAGER", label: "Transport Manager", icon: Compass, defaultEmail: "transport@greenwoodhigh.edu", path: "/greenwood-high/transport" },
+  { id: "DRIVER", label: "Driver", icon: Bus, defaultEmail: "driver@greenwoodhigh.edu", path: "/greenwood-high/transport" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,50 +48,86 @@ export default function LoginPage() {
   const [password, setPassword] = React.useState("");
   const [otp, setOtp] = React.useState("");
   const [activeTab, setActiveTab] = React.useState("school");
+  const [selectedRole, setSelectedRole] = React.useState("SCHOOL_ADMIN");
   const [loading, setLoading] = React.useState(false);
   const [errorMsg, setErrorMsg] = React.useState<string | null>(null);
+
+  const getTargetPath = (role: string) => {
+    switch (role) {
+      case "SUPER_ADMIN":
+        return "/super-admin";
+      case "TEACHER":
+        return "/greenwood-high/academics";
+      case "DRIVER":
+      case "TRANSPORT_MANAGER":
+        return "/greenwood-high/transport";
+      case "SCHOOL_ADMIN":
+      default:
+        return "/greenwood-high/dashboard";
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
 
+    const targetRole = activeTab === "super" ? "SUPER_ADMIN" : selectedRole;
+    const defaultEmail = activeTab === "super"
+      ? "superadmin@schoolerp.com"
+      : (SCHOOL_ROLES.find((r) => r.id === targetRole)?.defaultEmail || "admin@greenwoodhigh.edu");
+
+    const loginEmail = email || defaultEmail;
+
     try {
-      const demoRole = activeTab === "super" ? "SUPER_ADMIN" : "SCHOOL_ADMIN";
-      const res = await erpApi.login(email || (activeTab === "super" ? "superadmin@schoolerp.com" : "admin@greenwoodhigh.edu"), password, demoRole);
+      const res = await erpApi.login(loginEmail, password, targetRole);
 
       localStorage.setItem("token", res.accessToken || "mock-token");
-      localStorage.setItem("demo_role", demoRole);
+      localStorage.setItem("demo_role", targetRole);
+      localStorage.setItem("auth_role", targetRole);
+      if (res.user) {
+        localStorage.setItem("user", JSON.stringify(res.user));
+      }
       if (res.user?.schoolId) {
         localStorage.setItem("school_id", res.user.schoolId);
+      } else if (targetRole !== "SUPER_ADMIN") {
+        localStorage.setItem("school_id", "school-greenwood-high");
       }
 
-      if (demoRole === "SUPER_ADMIN") {
-        router.push("/super-admin");
-      } else {
-        router.push("/school/greenwood-high/dashboard");
-      }
+      router.push(getTargetPath(targetRole));
     } catch (err: any) {
-      // Fallback for seamless demo testing
-      if (activeTab === "super") {
-        localStorage.setItem("demo_role", "SUPER_ADMIN");
-        router.push("/super-admin");
-      } else {
-        localStorage.setItem("demo_role", "SCHOOL_ADMIN");
+      // Graceful fallback for demo testing
+      localStorage.setItem("demo_role", targetRole);
+      localStorage.setItem("auth_role", targetRole);
+      const fallbackUser = {
+        name: SCHOOL_ROLES.find((r) => r.id === targetRole)?.title || targetRole,
+        role: targetRole,
+        email: loginEmail,
+      };
+      localStorage.setItem("user", JSON.stringify(fallbackUser));
+      if (targetRole !== "SUPER_ADMIN") {
         localStorage.setItem("school_id", "school-greenwood-high");
-        router.push("/school/greenwood-high/dashboard");
       }
+      router.push(getTargetPath(targetRole));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleQuickDemo = (role: string, targetPath: string) => {
+  const handleQuickDemo = (role: string) => {
     localStorage.setItem("demo_role", role);
+    localStorage.setItem("auth_role", role);
+    const roleInfo = SCHOOL_ROLES.find((r) => r.id === role);
+    const demoUser = {
+      name: roleInfo?.title || role,
+      role: role,
+      email: roleInfo?.defaultEmail || `${role.toLowerCase()}@schoolerp.com`,
+    };
+    localStorage.setItem("user", JSON.stringify(demoUser));
     if (role !== "SUPER_ADMIN") {
       localStorage.setItem("school_id", "school-greenwood-high");
     }
-    router.push(targetPath);
+    router.push(getTargetPath(role));
   };
 
   return (
@@ -93,7 +138,7 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md z-10 space-y-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-300 bg-zinc-100 shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-zinc-300 bg-zinc-100 shadow-xs">
             <Building2 className="h-6 w-6 text-zinc-900" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
@@ -104,7 +149,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Login Card with shadcn UI */}
+        {/* Login Card */}
         <Card className="border border-zinc-200 bg-white shadow-xl text-zinc-950">
           <CardHeader className="pb-4">
             <CardTitle className="text-lg font-semibold text-zinc-950">Sign In</CardTitle>
@@ -118,14 +163,14 @@ export default function LoginPage() {
               <TabsList className="grid w-full grid-cols-2 bg-zinc-100 border border-zinc-200">
                 <TabsTrigger
                   value="school"
-                  className="data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-sm text-xs text-zinc-600"
+                  className="data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-xs text-xs text-zinc-600"
                 >
                   <GraduationCap className="h-3.5 w-3.5 mr-1.5" />
                   School Portal
                 </TabsTrigger>
                 <TabsTrigger
                   value="super"
-                  className="data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-sm text-xs text-zinc-600"
+                  className="data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-xs text-xs text-zinc-600"
                 >
                   <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
                   Super Admin
@@ -140,9 +185,39 @@ export default function LoginPage() {
                   </Alert>
                 )}
 
+                {/* Role Selector for School Portal */}
+                {activeTab === "school" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-zinc-600">Select Role</Label>
+                    <div className="grid grid-cols-2 gap-1.5 p-1 bg-zinc-100 border border-zinc-200 rounded-lg">
+                      {SCHOOL_ROLES.map((r) => {
+                        const Icon = r.icon;
+                        const isSelected = selectedRole === r.id;
+                        return (
+                          <button
+                            type="button"
+                            key={r.id}
+                            onClick={() => setSelectedRole(r.id)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-xs font-medium transition-all ${
+                              isSelected
+                                ? "bg-white text-zinc-950 shadow-xs border border-zinc-200 font-semibold"
+                                : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/60"
+                            }`}
+                          >
+                            <Icon className="h-3.5 w-3.5 shrink-0" />
+                            <span className="truncate">{r.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-1.5">
                   <Label htmlFor="email" className="text-xs text-zinc-600">
-                    {activeTab === "super" ? "Super Admin Identity" : "School Admin / Staff Email"}
+                    {activeTab === "super"
+                      ? "Super Admin Email"
+                      : `${SCHOOL_ROLES.find((r) => r.id === selectedRole)?.label || "Staff"} Email`}
                   </Label>
                   <Input
                     id="email"
@@ -150,7 +225,7 @@ export default function LoginPage() {
                     placeholder={
                       activeTab === "super"
                         ? "superadmin@schoolerp.com"
-                        : "admin@greenwoodhigh.edu"
+                        : (SCHOOL_ROLES.find((r) => r.id === selectedRole)?.defaultEmail || "admin@greenwoodhigh.edu")
                     }
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -196,16 +271,16 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-zinc-200 text-zinc-900 border border-zinc-300 hover:bg-zinc-300 font-semibold text-xs tracking-wider uppercase h-10 shadow-sm"
+                  className="w-full bg-zinc-900 text-white hover:bg-zinc-800 font-semibold text-xs tracking-wider uppercase h-10 shadow-xs cursor-pointer"
                 >
                   {loading ? (
                     <>
-                      <Spinner size="sm" className="mr-2 border-zinc-400 border-t-zinc-950" />
+                      <Spinner size="sm" className="mr-2" />
                       Authenticating...
                     </>
                   ) : (
                     <>
-                      Authorize & Proceed
+                      Sign In to {activeTab === "super" ? "Super Admin" : SCHOOL_ROLES.find((r) => r.id === selectedRole)?.label}
                       <ArrowRight className="ml-2 h-4 w-4" />
                     </>
                   )}
@@ -218,24 +293,51 @@ export default function LoginPage() {
             <div className="text-[11px] text-zinc-500 text-center font-mono">
               QUICK LAUNCH DEMO ACCOUNTS
             </div>
-            <div className="grid grid-cols-2 gap-2 w-full">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 w-full">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleQuickDemo("SUPER_ADMIN", "/super-admin")}
-                className="text-xs border-zinc-300 bg-zinc-100 hover:bg-zinc-200 text-zinc-800"
+                onClick={() => handleQuickDemo("TEACHER")}
+                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
               >
-                <ShieldCheck className="h-3.5 w-3.5 mr-1" />
-                Super Admin
+                <BookOpen className="h-3 w-3 mr-1 text-zinc-600" />
+                Teacher
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleQuickDemo("SCHOOL_ADMIN", "/greenwood-high/dashboard")}
-                className="text-xs border-zinc-300 bg-zinc-100 hover:bg-zinc-200 text-zinc-800"
+                onClick={() => handleQuickDemo("DRIVER")}
+                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
               >
-                <Building2 className="h-3.5 w-3.5 mr-1" />
+                <Bus className="h-3 w-3 mr-1 text-zinc-600" />
+                Driver
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickDemo("TRANSPORT_MANAGER")}
+                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
+              >
+                <Compass className="h-3 w-3 mr-1 text-zinc-600" />
+                Transport Mgr
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickDemo("SCHOOL_ADMIN")}
+                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
+              >
+                <Building2 className="h-3 w-3 mr-1 text-zinc-600" />
                 School Admin
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleQuickDemo("SUPER_ADMIN")}
+                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8 col-span-2 sm:col-span-2"
+              >
+                <ShieldCheck className="h-3 w-3 mr-1 text-zinc-600" />
+                Super Admin
               </Button>
             </div>
           </CardFooter>
