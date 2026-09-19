@@ -115,6 +115,30 @@ export default function NewAdmissionDirectPage() {
   const [createdApplication, setCreatedApplication] = React.useState<any | null>(null);
   const [isVaultOpen, setIsVaultOpen] = React.useState(false);
 
+  // 3-Second Field Error Thrower State
+  const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+  const errorTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const showErrors = (errors: Record<string, string>) => {
+    setFormErrors(errors);
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+    }
+    errorTimerRef.current = setTimeout(() => {
+      setFormErrors({});
+    }, 3000);
+  };
+
+  const clearFieldError = (fieldName: string) => {
+    if (formErrors[fieldName]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+    }
+  };
+
   // Section 1: Candidate Bio & Aadhar
   const [studentName, setStudentName] = React.useState("");
   const [dob, setDob] = React.useState("");
@@ -329,8 +353,70 @@ export default function NewAdmissionDirectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+
+    // Section 1 Validations
     if (!studentName.trim()) {
-      alert("Please enter candidate's full name");
+      errs.studentName = "Candidate full name is required";
+    }
+    if (!dob) {
+      errs.dob = "Date of birth is required";
+    }
+    if (!gender) {
+      errs.gender = "Please select candidate gender";
+    }
+    const cleanAadhar = aadharNumber.replace(/\D/g, "");
+    if (!cleanAadhar) {
+      errs.aadharNumber = "Aadhar card number is required";
+    } else if (cleanAadhar.length !== 12) {
+      errs.aadharNumber = "Must be a valid 12-digit UIDAI number";
+    }
+    if (!address.trim()) {
+      errs.address = "Permanent residential address is required";
+    }
+    if (!emergencyContact.trim()) {
+      errs.emergencyContact = "Emergency contact phone is required";
+    }
+
+    // Section 2 Validations
+    if (!fatherName.trim() && !motherName.trim()) {
+      errs.fatherName = "Parent / Guardian full name is required";
+    }
+    if (!fatherPhone.trim() && !motherPhone.trim()) {
+      errs.fatherPhone = "Parent contact phone number is required";
+    }
+    if (!parentEmail.trim()) {
+      errs.parentEmail = "Official notification email is required";
+    } else if (!parentEmail.includes("@") || !parentEmail.includes(".")) {
+      errs.parentEmail = "Please enter a valid email address";
+    }
+
+    // Section 3 Validations
+    if (!targetGrade) {
+      errs.targetGrade = "Please choose the target grade / standard";
+    }
+
+    if (targetGrade === "Grade 11") {
+      if (!tenthRegNo.trim()) {
+        errs.tenthRegNo = "10th SSLC registration number is required";
+      }
+    }
+
+    if (targetGrade === "Grade 12") {
+      if (!eleventhRegNo.trim()) {
+        errs.eleventhRegNo = "11th HSC registration number is required";
+      }
+    }
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      if (errs.studentName || errs.dob || errs.gender || errs.aadharNumber || errs.address || errs.emergencyContact) {
+        document.getElementById("section-student-identity")?.scrollIntoView({ behavior: "smooth" });
+      } else if (errs.fatherName || errs.fatherPhone || errs.parentEmail) {
+        document.getElementById("section-guardian-details")?.scrollIntoView({ behavior: "smooth" });
+      } else if (errs.targetGrade || errs.tenthRegNo || errs.eleventhRegNo) {
+        document.getElementById("section-academics-marksheet")?.scrollIntoView({ behavior: "smooth" });
+      }
       return;
     }
 
@@ -416,7 +502,9 @@ export default function NewAdmissionDirectPage() {
       setIsVaultOpen(true);
     } catch (err: any) {
       console.error("Failed to submit admission to database:", err);
-      alert(`Submission Error: ${err?.message || "Could not save to database. Please check connection."}`);
+      showErrors({
+        form_error: err?.message || "Could not save to database. Please check connection.",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -510,7 +598,13 @@ export default function NewAdmissionDirectPage() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        {formErrors.form_error && (
+          <p className="text-xs font-medium text-red-600 bg-red-50 p-3 rounded-lg border border-red-200 animate-in fade-in">
+            {formErrors.form_error}
+          </p>
+        )}
+
         {/* SECTION 1: Student Identity */}
         <Card id="section-student-identity" className="bg-white border-zinc-200 shadow-sm scroll-mt-6">
           <CardHeader className="border-b border-zinc-100 pb-3">
@@ -571,25 +665,43 @@ export default function NewAdmissionDirectPage() {
               {/* Bio Inputs */}
               <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
                 <div className="sm:col-span-2 space-y-1.5">
-                  <Label className="text-xs text-zinc-800 font-semibold">Student Full Name *</Label>
+                  <Label className="text-xs text-zinc-800 font-semibold">
+                    Student Full Name <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
                     placeholder="e.g. S. Ananya"
                     value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    className="h-9 text-xs bg-white border-zinc-300"
-                    required
+                    onChange={(e) => {
+                      clearFieldError("studentName");
+                      setStudentName(e.target.value);
+                    }}
+                    className={`h-9 text-xs bg-white ${formErrors.studentName ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                   />
+                  {formErrors.studentName && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.studentName}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-zinc-800 font-semibold">Date of Birth (DOB) *</Label>
+                  <Label className="text-xs text-zinc-800 font-semibold">
+                    Date of Birth (DOB) <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
                     type="date"
                     value={dob}
-                    onChange={handleDobChange}
-                    className="h-9 text-xs bg-white border-zinc-300 font-mono"
-                    required
+                    onChange={(e) => {
+                      clearFieldError("dob");
+                      handleDobChange(e);
+                    }}
+                    className={`h-9 text-xs bg-white font-mono ${formErrors.dob ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                   />
+                  {formErrors.dob && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.dob}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -604,9 +716,17 @@ export default function NewAdmissionDirectPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-zinc-800 font-semibold">Gender *</Label>
-                  <Select value={gender} onValueChange={setGender}>
-                    <SelectTrigger className="h-9 text-xs bg-white border-zinc-300">
+                  <Label className="text-xs text-zinc-800 font-semibold">
+                    Gender <span className="text-red-500 font-bold">*</span>
+                  </Label>
+                  <Select
+                    value={gender}
+                    onValueChange={(val) => {
+                      clearFieldError("gender");
+                      setGender(val);
+                    }}
+                  >
+                    <SelectTrigger className={`h-9 text-xs bg-white ${formErrors.gender ? "border-red-500 focus:ring-red-500" : "border-zinc-300"}`}>
                       <SelectValue placeholder="Select Gender (e.g. Female)" />
                     </SelectTrigger>
                     <SelectContent>
@@ -615,6 +735,11 @@ export default function NewAdmissionDirectPage() {
                       <SelectItem value="Other">Other</SelectItem>
                     </SelectContent>
                   </Select>
+                  {formErrors.gender && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.gender}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
@@ -633,40 +758,69 @@ export default function NewAdmissionDirectPage() {
 
                 <div className="sm:col-span-2 space-y-1.5">
                   <Label className="text-xs text-zinc-800 font-semibold flex items-center justify-between">
-                    <span>Student Aadhar Number (UIDAI) *</span>
+                    <span>
+                      Student Aadhar Number (UIDAI) <span className="text-red-500 font-bold">*</span>
+                    </span>
                     <span className="text-[10px] text-zinc-500 font-mono">12-Digit Format (Verified)</span>
                   </Label>
                   <Input
                     placeholder="e.g. 6721 8840 1923"
                     value={aadharNumber}
-                    onChange={handleAadharChange}
+                    onChange={(e) => {
+                      clearFieldError("aadharNumber");
+                      handleAadharChange(e);
+                    }}
                     maxLength={14}
-                    className="h-9 text-xs bg-white border-zinc-300 font-mono tracking-widest text-zinc-950 font-bold"
-                    required
+                    className={`h-9 text-xs bg-white font-mono tracking-widest text-zinc-950 font-bold ${formErrors.aadharNumber ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                   />
+                  {formErrors.aadharNumber && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.aadharNumber}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
               <div className="space-y-1.5">
-                <Label className="text-xs text-zinc-800 font-semibold">Permanent Residential Address</Label>
+                <Label className="text-xs text-zinc-800 font-semibold">
+                  Permanent Residential Address <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Input
                   placeholder="e.g. 42, Gandhi Road, Adyar, Chennai - 600020"
                   value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  className="h-9 text-xs bg-white border-zinc-300"
+                  onChange={(e) => {
+                    clearFieldError("address");
+                    setAddress(e.target.value);
+                  }}
+                  className={`h-9 text-xs bg-white ${formErrors.address ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                 />
+                {formErrors.address && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.address}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs text-zinc-800 font-semibold">Emergency Contact Number</Label>
+                <Label className="text-xs text-zinc-800 font-semibold">
+                  Emergency Contact Number <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Input
                   placeholder="e.g. +91 98400 11223"
                   value={emergencyContact}
-                  onChange={(e) => setEmergencyContact(e.target.value)}
-                  className="h-9 text-xs bg-white border-zinc-300 font-mono"
+                  onChange={(e) => {
+                    clearFieldError("emergencyContact");
+                    setEmergencyContact(e.target.value);
+                  }}
+                  className={`h-9 text-xs bg-white font-mono ${formErrors.emergencyContact ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                 />
+                {formErrors.emergencyContact && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.emergencyContact}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -758,30 +912,48 @@ export default function NewAdmissionDirectPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2 flex-1">
+                    <div className="space-y-2 flex-1">
                     <div className="space-y-1">
-                      <Label className="text-xs text-zinc-800 font-semibold">Father Full Name *</Label>
+                      <Label className="text-xs text-zinc-800 font-semibold">
+                        Father Full Name <span className="text-red-500 font-bold">*</span>
+                      </Label>
                       <Input
                         placeholder="e.g. R. Sundararaman"
                         value={fatherName}
-                        onChange={(e) => setFatherName(e.target.value)}
-                        className="h-8 text-xs bg-white border-zinc-300"
-                        required
+                        onChange={(e) => {
+                          clearFieldError("fatherName");
+                          setFatherName(e.target.value);
+                        }}
+                        className={`h-8 text-xs bg-white ${formErrors.fatherName ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                       />
+                      {formErrors.fatherName && (
+                        <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                          {formErrors.fatherName}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 pt-1">
                   <div className="space-y-1">
-                    <Label className="text-xs text-zinc-800 font-semibold">Mobile Phone *</Label>
+                    <Label className="text-xs text-zinc-800 font-semibold">
+                      Mobile Phone <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
                       placeholder="+91 98401 55667"
                       value={fatherPhone}
-                      onChange={(e) => setFatherPhone(e.target.value)}
-                      className="h-8 text-xs bg-white border-zinc-300 font-mono font-medium"
-                      required
+                      onChange={(e) => {
+                        clearFieldError("fatherPhone");
+                        setFatherPhone(e.target.value);
+                      }}
+                      className={`h-8 text-xs bg-white font-mono font-medium ${formErrors.fatherPhone ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
                     />
+                    {formErrors.fatherPhone && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.fatherPhone}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-zinc-800 font-semibold">Occupation</Label>
@@ -866,15 +1038,24 @@ export default function NewAdmissionDirectPage() {
             </div>
 
             <div className="space-y-1.5 pt-2">
-              <Label className="text-xs text-zinc-800 font-semibold">Official Notification Email Address *</Label>
+              <Label className="text-xs text-zinc-800 font-semibold">
+                Official Notification Email Address <span className="text-red-500 font-bold">*</span>
+              </Label>
               <Input
                 type="email"
                 placeholder="e.g. sundar.family@gmail.com"
                 value={parentEmail}
-                onChange={(e) => setParentEmail(e.target.value)}
-                className="h-9 text-xs bg-white border-zinc-300 font-mono"
-                required
+                onChange={(e) => {
+                  clearFieldError("parentEmail");
+                  setParentEmail(e.target.value);
+                }}
+                className={`h-9 text-xs bg-white font-mono ${formErrors.parentEmail ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
               />
+              {formErrors.parentEmail && (
+                <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                  {formErrors.parentEmail}
+                </p>
+              )}
               <span className="text-[11px] text-zinc-500 font-mono">
                 Used for sending digital fee invoices, roll call alerts, and printable report cards.
               </span>
@@ -913,9 +1094,17 @@ export default function NewAdmissionDirectPage() {
             {/* Grade Selection */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs text-zinc-800 font-semibold">Applying For Grade / Standard *</Label>
-                <Select value={targetGrade} onValueChange={setTargetGrade}>
-                  <SelectTrigger className="h-9 text-xs bg-white border-zinc-300 font-bold">
+                <Label className="text-xs text-zinc-800 font-semibold">
+                  Applying For Grade / Standard <span className="text-red-500 font-bold">*</span>
+                </Label>
+                <Select
+                  value={targetGrade}
+                  onValueChange={(val) => {
+                    clearFieldError("targetGrade");
+                    setTargetGrade(val);
+                  }}
+                >
+                  <SelectTrigger className={`h-9 text-xs bg-white font-bold ${formErrors.targetGrade ? "border-red-500 focus:ring-red-500" : "border-zinc-300"}`}>
                     <SelectValue placeholder="Select Target Grade" />
                   </SelectTrigger>
                   <SelectContent>
@@ -924,12 +1113,17 @@ export default function NewAdmissionDirectPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.targetGrade && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.targetGrade}
+                  </p>
+                )}
               </div>
 
               {(targetGrade === "Grade 11" || targetGrade === "Grade 12") && (
                 <div className="space-y-1.5">
                   <Label className="text-xs text-zinc-800 font-semibold">
-                    {targetGrade === "Grade 12" ? "Higher Secondary (+2) Syllabus Group *" : "Target Senior Secondary Stream *"}
+                    {targetGrade === "Grade 12" ? "Higher Secondary (+2) Syllabus Group" : "Target Senior Secondary Stream"} <span className="text-red-500 font-bold">*</span>
                   </Label>
                   <Select value={selectedGroupKey} onValueChange={setSelectedGroupKey}>
                     <SelectTrigger className="h-9 text-xs bg-white border-zinc-300 font-medium">
@@ -958,19 +1152,29 @@ export default function NewAdmissionDirectPage() {
                       Department of Government Examinations, Chennai • Samacheer Kalvi Format
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      placeholder="Reg No (e.g. TN-SSLC-991204)"
-                      value={tenthRegNo}
-                      onChange={(e) => setTenthRegNo(e.target.value)}
-                      className="h-8 text-xs w-48 font-mono border-zinc-300"
-                    />
-                    <Input
-                      placeholder="Year (e.g. 2026)"
-                      value={tenthYear}
-                      onChange={(e) => setTenthYear(e.target.value)}
-                      className="h-8 text-xs w-28 font-mono border-zinc-300"
-                    />
+                  <div className="flex flex-col items-end">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        placeholder="Reg No * (e.g. TN-SSLC-991204)"
+                        value={tenthRegNo}
+                        onChange={(e) => {
+                          clearFieldError("tenthRegNo");
+                          setTenthRegNo(e.target.value);
+                        }}
+                        className={`h-8 text-xs w-52 font-mono ${formErrors.tenthRegNo ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
+                      />
+                      <Input
+                        placeholder="Year (e.g. 2026)"
+                        value={tenthYear}
+                        onChange={(e) => setTenthYear(e.target.value)}
+                        className="h-8 text-xs w-28 font-mono border-zinc-300"
+                      />
+                    </div>
+                    {formErrors.tenthRegNo && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.tenthRegNo}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1199,12 +1403,22 @@ export default function NewAdmissionDirectPage() {
                       Subjects update automatically based on selected group
                     </div>
                   </div>
-                  <Input
-                    placeholder="11th Reg No (e.g. TN-HSC-729104)"
-                    value={eleventhRegNo}
-                    onChange={(e) => setEleventhRegNo(e.target.value)}
-                    className="h-8 text-xs w-60 font-mono border-zinc-300"
-                  />
+                  <div className="flex flex-col items-end">
+                    <Input
+                      placeholder="11th Reg No * (e.g. TN-HSC-729104)"
+                      value={eleventhRegNo}
+                      onChange={(e) => {
+                        clearFieldError("eleventhRegNo");
+                        setEleventhRegNo(e.target.value);
+                      }}
+                      className={`h-8 text-xs w-60 font-mono ${formErrors.eleventhRegNo ? "border-red-500 focus-visible:ring-red-500" : "border-zinc-300"}`}
+                    />
+                    {formErrors.eleventhRegNo && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.eleventhRegNo}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="border border-zinc-300 rounded overflow-hidden">

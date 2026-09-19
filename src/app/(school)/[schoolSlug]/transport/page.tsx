@@ -226,9 +226,43 @@ export default function TransportPage() {
     }));
   };
 
+  // 3-Second Field Error Thrower State
+  const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+  const errorTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const showErrors = (errors: Record<string, string>) => {
+    setFormErrors(errors);
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+    }
+    errorTimerRef.current = setTimeout(() => {
+      setFormErrors({});
+    }, 3000);
+  };
+
+  const clearFieldError = (fieldName: string) => {
+    if (formErrors[fieldName]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+    }
+  };
+
   // Submit Handlers
   const handleAddDriver = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!driverForm.name.trim()) errs.driver_name = "Full name is required";
+    if (!driverForm.phone.trim()) errs.driver_phone = "Contact phone number is required";
+    if (!driverForm.licenseNumber.trim()) errs.driver_license = "Driving license number is required";
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await erpApi.createDriver(driverForm);
@@ -246,7 +280,7 @@ export default function TransportPage() {
       });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to add driver");
+      showErrors({ driver_form: err.message || "Failed to add driver" });
     } finally {
       setSubmitting(false);
     }
@@ -254,6 +288,16 @@ export default function TransportPage() {
 
   const handleAddVehicle = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!vehicleForm.registrationNo.trim()) errs.veh_regNo = "Registration number is required";
+    if (!vehicleForm.model.trim()) errs.veh_model = "Vehicle make / model is required";
+    if (!vehicleForm.capacity || Number(vehicleForm.capacity) <= 0) errs.veh_capacity = "Valid seating capacity is required";
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await erpApi.createVehicle(vehicleForm);
@@ -270,7 +314,7 @@ export default function TransportPage() {
       });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to add vehicle");
+      showErrors({ veh_form: err.message || "Failed to add vehicle" });
     } finally {
       setSubmitting(false);
     }
@@ -278,6 +322,16 @@ export default function TransportPage() {
 
   const handleAddRoute = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!routeForm.name.trim()) errs.route_name = "Route name is required";
+    if (!routeForm.startLocation.trim()) errs.route_start = "Start location is required";
+    if (!routeForm.endLocation.trim()) errs.route_end = "Destination / End location is required";
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await erpApi.createRoute(routeForm);
@@ -290,10 +344,11 @@ export default function TransportPage() {
         endLocation: "",
         vehicleId: "",
         driverId: "",
+        inchargeStaffId: "",
       });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to create route");
+      showErrors({ route_form: err.message || "Failed to create route" });
     } finally {
       setSubmitting(false);
     }
@@ -302,6 +357,16 @@ export default function TransportPage() {
   const handleAddStop = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRouteForStop) return;
+    const errs: Record<string, string> = {};
+    if (!stopForm.stopName.trim()) errs.stop_name = "Stop name is required";
+    if (!stopForm.pickupTime.trim()) errs.stop_pickup = "Morning pickup time is required";
+    if (!stopForm.dropTime.trim()) errs.stop_drop = "Afternoon drop time is required";
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await erpApi.addRouteStop(selectedRouteForStop.id, stopForm);
@@ -317,7 +382,7 @@ export default function TransportPage() {
       });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to add stop");
+      showErrors({ stop_form: err.message || "Failed to add stop" });
     } finally {
       setSubmitting(false);
     }
@@ -330,7 +395,7 @@ export default function TransportPage() {
       showToast("Driver removed.");
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to delete driver");
+      showToast(err.message || "Failed to delete driver");
     }
   };
 
@@ -341,7 +406,7 @@ export default function TransportPage() {
       showToast("Vehicle removed from fleet.");
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to delete vehicle");
+      showToast(err.message || "Failed to delete vehicle");
     }
   };
 
@@ -352,7 +417,7 @@ export default function TransportPage() {
       showToast("Route deleted.");
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to delete route");
+      showToast(err.message || "Failed to delete route");
     }
   };
 
@@ -363,7 +428,7 @@ export default function TransportPage() {
       showToast("Stop removed from route.");
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to delete stop");
+      showToast(err.message || "Failed to delete stop");
     }
   };
 
@@ -371,18 +436,21 @@ export default function TransportPage() {
     e.preventDefault();
     if (!selectedRouteForIncharge) return;
     if (!canManageAssignments) {
-      alert("Permission Denied: Only Principal and Transport Manager can appoint route faculty incharge.");
+      showErrors({ incharge_staff: "Permission Denied: Only Principal and Transport Manager can appoint route faculty incharge." });
+      return;
+    }
+    if (!selectedInchargeStaffId || selectedInchargeStaffId === "NONE") {
+      showErrors({ incharge_staff: "Please select a faculty member from the list." });
       return;
     }
     setSubmitting(true);
     try {
-      const staffId = selectedInchargeStaffId === "NONE" ? null : selectedInchargeStaffId;
-      await erpApi.updateRouteIncharge(selectedRouteForIncharge.id, staffId);
+      await erpApi.updateRouteIncharge(selectedRouteForIncharge.id, selectedInchargeStaffId);
       showToast(`Faculty incharge updated for "${selectedRouteForIncharge.name}".`);
       setIsAssignInchargeOpen(false);
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to update faculty incharge");
+      showErrors({ incharge_staff: err.message || "Failed to update faculty incharge" });
     } finally {
       setSubmitting(false);
     }
@@ -392,13 +460,18 @@ export default function TransportPage() {
     e.preventDefault();
     if (!selectedRouteForStudent) return;
     if (!canManageAssignments) {
-      alert("Permission Denied: Only Principal and Transport Manager can assign students to routes.");
+      showErrors({ assign_student: "Permission Denied: Only Principal and Transport Manager can assign students to routes." });
       return;
     }
-    if (!studentAssignForm.studentId || !studentAssignForm.stopId) {
-      alert("Please select both a student and a boarding stop.");
+    const errs: Record<string, string> = {};
+    if (!studentAssignForm.studentId) errs.assign_student = "Please choose a student to assign";
+    if (!studentAssignForm.stopId) errs.assign_stop = "Please designate a boarding stop";
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
       return;
     }
+
     setSubmitting(true);
     try {
       await erpApi.assignStudent({
@@ -411,7 +484,7 @@ export default function TransportPage() {
       setStudentAssignForm({ studentId: "", stopId: "" });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to assign student");
+      showErrors({ assign_student: err.message || "Failed to assign student" });
     } finally {
       setSubmitting(false);
     }
@@ -419,7 +492,7 @@ export default function TransportPage() {
 
   const handleUnassignStudent = async (studentId: string, studentName: string) => {
     if (!canManageAssignments) {
-      alert("Permission Denied: Only Principal and Transport Manager can unassign students.");
+      showToast("Permission Denied: Only Principal and Transport Manager can unassign students.");
       return;
     }
     if (!confirm(`Unassign student "${studentName}" from this route?`)) return;
@@ -1207,7 +1280,7 @@ export default function TransportPage() {
       {/* DIALOG: ADD DRIVER */}
       <Dialog open={isAddDriverOpen} onOpenChange={setIsAddDriverOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleAddDriver}>
+          <form noValidate onSubmit={handleAddDriver}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold">Register New Driver</DialogTitle>
               <DialogDescription className="text-xs text-zinc-500">
@@ -1215,29 +1288,55 @@ export default function TransportPage() {
               </DialogDescription>
             </DialogHeader>
 
+            {formErrors.driver_form && (
+              <p className="text-[11px] font-medium text-red-600 bg-red-50 p-2 rounded border border-red-200 mt-2 animate-in fade-in">
+                {formErrors.driver_form}
+              </p>
+            )}
+
             <div className="space-y-3 py-4 text-xs">
               <div className="space-y-1">
-                <Label className="text-xs">Full Name *</Label>
+                <Label className="text-xs font-medium">
+                  Full Name <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Input
-                  required
                   placeholder="e.g. Ramesh Kumar"
                   value={driverForm.name}
-                  onChange={(e) => setDriverForm({ ...driverForm, name: e.target.value })}
+                  onChange={(e) => {
+                    clearFieldError("driver_name");
+                    setDriverForm({ ...driverForm, name: e.target.value });
+                  }}
+                  className={formErrors.driver_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {formErrors.driver_name && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.driver_name}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Phone Number *</Label>
+                  <Label className="text-xs font-medium">
+                    Phone Number <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="+91 9876543210"
                     value={driverForm.phone}
-                    onChange={(e) => setDriverForm({ ...driverForm, phone: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("driver_phone");
+                      setDriverForm({ ...driverForm, phone: e.target.value });
+                    }}
+                    className={formErrors.driver_phone ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.driver_phone && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.driver_phone}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Experience (Years)</Label>
+                  <Label className="text-xs font-medium">Experience (Years)</Label>
                   <Input
                     type="number"
                     min="0"
@@ -1249,16 +1348,26 @@ export default function TransportPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Driving License No *</Label>
+                  <Label className="text-xs font-medium">
+                    Driving License No <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="TN-01-2018-00291"
                     value={driverForm.licenseNumber}
-                    onChange={(e) => setDriverForm({ ...driverForm, licenseNumber: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      clearFieldError("driver_license");
+                      setDriverForm({ ...driverForm, licenseNumber: e.target.value.toUpperCase() });
+                    }}
+                    className={formErrors.driver_license ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.driver_license && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.driver_license}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">License Expiry</Label>
+                  <Label className="text-xs font-medium">License Expiry</Label>
                   <Input
                     type="date"
                     value={driverForm.licenseExpiry}
@@ -1268,7 +1377,7 @@ export default function TransportPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">Emergency Contact</Label>
+                <Label className="text-xs font-medium">Emergency Contact</Label>
                 <Input
                   placeholder="Relative name / phone (+91 9840012345)"
                   value={driverForm.emergencyContact}
@@ -1277,7 +1386,7 @@ export default function TransportPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">Residential Address</Label>
+                <Label className="text-xs font-medium">Residential Address</Label>
                 <Input
                   placeholder="Street, City, Postal Code"
                   value={driverForm.address}
@@ -1310,7 +1419,7 @@ export default function TransportPage() {
       {/* DIALOG: ADD VEHICLE */}
       <Dialog open={isAddVehicleOpen} onOpenChange={setIsAddVehicleOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleAddVehicle}>
+          <form noValidate onSubmit={handleAddVehicle}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold">Register Fleet Vehicle</DialogTitle>
               <DialogDescription className="text-xs text-zinc-500">
@@ -1318,19 +1427,35 @@ export default function TransportPage() {
               </DialogDescription>
             </DialogHeader>
 
+            {formErrors.veh_form && (
+              <p className="text-[11px] font-medium text-red-600 bg-red-50 p-2 rounded border border-red-200 mt-2 animate-in fade-in">
+                {formErrors.veh_form}
+              </p>
+            )}
+
             <div className="space-y-3 py-4 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Registration Number *</Label>
+                  <Label className="text-xs font-medium">
+                    Registration Number <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="TN-09-AX-4821"
                     value={vehicleForm.registrationNo}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, registrationNo: e.target.value.toUpperCase() })}
+                    onChange={(e) => {
+                      clearFieldError("veh_regNo");
+                      setVehicleForm({ ...vehicleForm, registrationNo: e.target.value.toUpperCase() });
+                    }}
+                    className={formErrors.veh_regNo ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.veh_regNo && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.veh_regNo}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Vehicle Type</Label>
+                  <Label className="text-xs font-medium">Vehicle Type</Label>
                   <Select
                     value={vehicleForm.vehicleType}
                     onValueChange={(val) => setVehicleForm({ ...vehicleForm, vehicleType: val })}
@@ -1349,29 +1474,49 @@ export default function TransportPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Model / Make *</Label>
+                  <Label className="text-xs font-medium">
+                    Model / Make <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="e.g. Tata Starbus Ultra"
                     value={vehicleForm.model}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("veh_model");
+                      setVehicleForm({ ...vehicleForm, model: e.target.value });
+                    }}
+                    className={formErrors.veh_model ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.veh_model && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.veh_model}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Seating Capacity *</Label>
+                  <Label className="text-xs font-medium">
+                    Seating Capacity <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
                     type="number"
                     min="1"
-                    required
                     value={vehicleForm.capacity}
-                    onChange={(e) => setVehicleForm({ ...vehicleForm, capacity: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("veh_capacity");
+                      setVehicleForm({ ...vehicleForm, capacity: e.target.value });
+                    }}
+                    className={formErrors.veh_capacity ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.veh_capacity && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.veh_capacity}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Fuel Type</Label>
+                  <Label className="text-xs font-medium">Fuel Type</Label>
                   <Select
                     value={vehicleForm.fuelType}
                     onValueChange={(val) => setVehicleForm({ ...vehicleForm, fuelType: val })}
@@ -1388,7 +1533,7 @@ export default function TransportPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Assigned Driver</Label>
+                  <Label className="text-xs font-medium">Assigned Driver</Label>
                   <Select
                     value={vehicleForm.driverId}
                     onValueChange={(val) => setVehicleForm({ ...vehicleForm, driverId: val })}
@@ -1433,7 +1578,7 @@ export default function TransportPage() {
       {/* DIALOG: ADD ROUTE */}
       <Dialog open={isAddRouteOpen} onOpenChange={setIsAddRouteOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleAddRoute}>
+          <form noValidate onSubmit={handleAddRoute}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold">Create Transport Route</DialogTitle>
               <DialogDescription className="text-xs text-zinc-500">
@@ -1441,19 +1586,35 @@ export default function TransportPage() {
               </DialogDescription>
             </DialogHeader>
 
+            {formErrors.route_form && (
+              <p className="text-[11px] font-medium text-red-600 bg-red-50 p-2 rounded border border-red-200 mt-2 animate-in fade-in">
+                {formErrors.route_form}
+              </p>
+            )}
+
             <div className="space-y-3 py-4 text-xs">
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">Route Name *</Label>
+                  <Label className="text-xs font-medium">
+                    Route Name <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="e.g. Route 101 - North Corridor"
                     value={routeForm.name}
-                    onChange={(e) => setRouteForm({ ...routeForm, name: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("route_name");
+                      setRouteForm({ ...routeForm, name: e.target.value });
+                    }}
+                    className={formErrors.route_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.route_name && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.route_name}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Route Code</Label>
+                  <Label className="text-xs font-medium">Route Code</Label>
                   <Input
                     placeholder="RT-101"
                     value={routeForm.code}
@@ -1464,26 +1625,48 @@ export default function TransportPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Start Location</Label>
+                  <Label className="text-xs font-medium">
+                    Start Location <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
                     placeholder="e.g. T. Nagar Terminus"
                     value={routeForm.startLocation}
-                    onChange={(e) => setRouteForm({ ...routeForm, startLocation: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("route_start");
+                      setRouteForm({ ...routeForm, startLocation: e.target.value });
+                    }}
+                    className={formErrors.route_start ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.route_start && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.route_start}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">End Location</Label>
+                  <Label className="text-xs font-medium">
+                    End Location <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
                     placeholder="e.g. Greenwood Main Gate"
                     value={routeForm.endLocation}
-                    onChange={(e) => setRouteForm({ ...routeForm, endLocation: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("route_end");
+                      setRouteForm({ ...routeForm, endLocation: e.target.value });
+                    }}
+                    className={formErrors.route_end ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.route_end && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.route_end}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Assign Vehicle</Label>
+                  <Label className="text-xs font-medium">Assign Vehicle</Label>
                   <Select
                     value={routeForm.vehicleId}
                     onValueChange={(val) => setRouteForm({ ...routeForm, vehicleId: val })}
@@ -1503,7 +1686,7 @@ export default function TransportPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Assign Driver</Label>
+                  <Label className="text-xs font-medium">Assign Driver</Label>
                   <Select
                     value={routeForm.driverId}
                     onValueChange={(val) => setRouteForm({ ...routeForm, driverId: val })}
@@ -1524,7 +1707,7 @@ export default function TransportPage() {
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs">Faculty Incharge (Optional)</Label>
+                <Label className="text-xs font-medium">Faculty Incharge (Optional)</Label>
                 <Select
                   value={routeForm.inchargeStaffId}
                   onValueChange={(val) => setRouteForm({ ...routeForm, inchargeStaffId: val })}
@@ -1568,7 +1751,7 @@ export default function TransportPage() {
       {/* DIALOG: ADD STOP TO ROUTE */}
       <Dialog open={isAddStopOpen} onOpenChange={setIsAddStopOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleAddStop}>
+          <form noValidate onSubmit={handleAddStop}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold">
                 Add Stop to {selectedRouteForStop?.name}
@@ -1578,41 +1761,77 @@ export default function TransportPage() {
               </DialogDescription>
             </DialogHeader>
 
+            {formErrors.stop_form && (
+              <p className="text-[11px] font-medium text-red-600 bg-red-50 p-2 rounded border border-red-200 mt-2 animate-in fade-in">
+                {formErrors.stop_form}
+              </p>
+            )}
+
             <div className="space-y-3 py-4 text-xs">
               <div className="space-y-1">
-                <Label className="text-xs">Stop Name *</Label>
+                <Label className="text-xs font-medium">
+                  Stop Name <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Input
-                  required
                   placeholder="e.g. Gandhi Nagar Junction"
                   value={stopForm.stopName}
-                  onChange={(e) => setStopForm({ ...stopForm, stopName: e.target.value })}
+                  onChange={(e) => {
+                    clearFieldError("stop_name");
+                    setStopForm({ ...stopForm, stopName: e.target.value });
+                  }}
+                  className={formErrors.stop_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {formErrors.stop_name && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.stop_name}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Pickup Time *</Label>
+                  <Label className="text-xs font-medium">
+                    Pickup Time <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="07:20 AM"
                     value={stopForm.pickupTime}
-                    onChange={(e) => setStopForm({ ...stopForm, pickupTime: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("stop_pickup");
+                      setStopForm({ ...stopForm, pickupTime: e.target.value });
+                    }}
+                    className={formErrors.stop_pickup ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.stop_pickup && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.stop_pickup}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Drop Time *</Label>
+                  <Label className="text-xs font-medium">
+                    Drop Time <span className="text-red-500 font-bold">*</span>
+                  </Label>
                   <Input
-                    required
                     placeholder="03:45 PM"
                     value={stopForm.dropTime}
-                    onChange={(e) => setStopForm({ ...stopForm, dropTime: e.target.value })}
+                    onChange={(e) => {
+                      clearFieldError("stop_drop");
+                      setStopForm({ ...stopForm, dropTime: e.target.value });
+                    }}
+                    className={formErrors.stop_drop ? "border-red-500 focus-visible:ring-red-500" : ""}
                   />
+                  {formErrors.stop_drop && (
+                    <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                      {formErrors.stop_drop}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs">Landmark / Cross Road</Label>
+                  <Label className="text-xs font-medium">Landmark / Cross Road</Label>
                   <Input
                     placeholder="Opposite Post Office"
                     value={stopForm.landmark}
@@ -1620,7 +1839,7 @@ export default function TransportPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">Sequence Order</Label>
+                  <Label className="text-xs font-medium">Sequence Order</Label>
                   <Input
                     type="number"
                     placeholder="Leave empty for next"
@@ -1655,7 +1874,7 @@ export default function TransportPage() {
       {/* DIALOG: APPOINT / CHANGE FACULTY INCHARGE */}
       <Dialog open={isAssignInchargeOpen} onOpenChange={setIsAssignInchargeOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleUpdateIncharge}>
+          <form noValidate onSubmit={handleUpdateIncharge}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold flex items-center gap-2">
                 <GraduationCap className="h-5 w-5 text-zinc-900" />
@@ -1669,12 +1888,17 @@ export default function TransportPage() {
 
             <div className="space-y-4 py-4 text-xs">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Select Faculty Member *</Label>
+                <Label className="text-xs font-medium">
+                  Select Faculty Member <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Select
                   value={selectedInchargeStaffId}
-                  onValueChange={setSelectedInchargeStaffId}
+                  onValueChange={(val) => {
+                    clearFieldError("incharge_staff");
+                    setSelectedInchargeStaffId(val);
+                  }}
                 >
-                  <SelectTrigger className="text-xs">
+                  <SelectTrigger className={`text-xs ${formErrors.incharge_staff ? "border-red-500 focus:ring-red-500" : ""}`}>
                     <SelectValue placeholder="Choose faculty incharge" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
@@ -1686,6 +1910,11 @@ export default function TransportPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.incharge_staff && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.incharge_staff}
+                  </p>
+                )}
               </div>
 
               <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-xs space-y-1 text-zinc-600">
@@ -1723,7 +1952,7 @@ export default function TransportPage() {
       {/* DIALOG: ASSIGN STUDENT TO ROUTE */}
       <Dialog open={isAssignStudentOpen} onOpenChange={setIsAssignStudentOpen}>
         <DialogContent className="sm:max-w-md bg-white text-zinc-950">
-          <form onSubmit={handleAssignStudent}>
+          <form noValidate onSubmit={handleAssignStudent}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold flex items-center gap-2">
                 <Users className="h-5 w-5 text-zinc-900" />
@@ -1737,12 +1966,17 @@ export default function TransportPage() {
 
             <div className="space-y-4 py-4 text-xs">
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Select Student *</Label>
+                <Label className="text-xs font-medium">
+                  Select Student <span className="text-red-500 font-bold">*</span>
+                </Label>
                 <Select
                   value={studentAssignForm.studentId}
-                  onValueChange={(val) => setStudentAssignForm({ ...studentAssignForm, studentId: val })}
+                  onValueChange={(val) => {
+                    clearFieldError("assign_student");
+                    setStudentAssignForm({ ...studentAssignForm, studentId: val });
+                  }}
                 >
-                  <SelectTrigger className="text-xs">
+                  <SelectTrigger className={`text-xs ${formErrors.assign_student ? "border-red-500 focus:ring-red-500" : ""}`}>
                     <SelectValue placeholder="Choose student to assign" />
                   </SelectTrigger>
                   <SelectContent className="max-h-60">
@@ -1753,10 +1987,17 @@ export default function TransportPage() {
                     ))}
                   </SelectContent>
                 </Select>
+                {formErrors.assign_student && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.assign_student}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-medium">Designated Boarding Stop *</Label>
+                <Label className="text-xs font-medium">
+                  Designated Boarding Stop <span className="text-red-500 font-bold">*</span>
+                </Label>
                 {(!selectedRouteForStudent?.stops || selectedRouteForStudent.stops.length === 0) ? (
                   <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-amber-800 text-[11px]">
                     This route has no stops configured yet. Please add a stop before assigning students.
@@ -1764,9 +2005,12 @@ export default function TransportPage() {
                 ) : (
                   <Select
                     value={studentAssignForm.stopId}
-                    onValueChange={(val) => setStudentAssignForm({ ...studentAssignForm, stopId: val })}
+                    onValueChange={(val) => {
+                      clearFieldError("assign_stop");
+                      setStudentAssignForm({ ...studentAssignForm, stopId: val });
+                    }}
                   >
-                    <SelectTrigger className="text-xs">
+                    <SelectTrigger className={`text-xs ${formErrors.assign_stop ? "border-red-500 focus:ring-red-500" : ""}`}>
                       <SelectValue placeholder="Choose boarding stop" />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
@@ -1777,6 +2021,11 @@ export default function TransportPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                )}
+                {formErrors.assign_stop && (
+                  <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                    {formErrors.assign_stop}
+                  </p>
                 )}
               </div>
 

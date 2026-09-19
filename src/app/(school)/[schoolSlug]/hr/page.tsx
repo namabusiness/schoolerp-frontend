@@ -126,8 +126,51 @@ export default function StaffHrPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
+  // 3-Second Field Error Thrower State
+  const [formErrors, setFormErrors] = React.useState<Record<string, string>>({});
+  const errorTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  const showErrors = (errors: Record<string, string>) => {
+    setFormErrors(errors);
+    if (errorTimerRef.current) {
+      clearTimeout(errorTimerRef.current);
+    }
+    errorTimerRef.current = setTimeout(() => {
+      setFormErrors({});
+    }, 3000);
+  };
+
+  const clearFieldError = (fieldName: string) => {
+    if (formErrors[fieldName]) {
+      setFormErrors((prev) => {
+        const next = { ...prev };
+        delete next[fieldName];
+        return next;
+      });
+    }
+  };
+
   const handleAddFaculty = async (e: React.FormEvent) => {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!facultyForm.name.trim()) errs.faculty_name = "Full name is required";
+    if (!facultyForm.phone.trim()) errs.faculty_phone = "Contact phone number is required";
+    if (!facultyForm.email.trim()) {
+      errs.faculty_email = "Official email address is required";
+    } else if (!facultyForm.email.includes("@")) {
+      errs.faculty_email = "Please provide a valid email address";
+    }
+    if (!facultyForm.designation.trim()) errs.faculty_designation = "Official designation is required";
+    if (!facultyForm.salary || Number(facultyForm.salary) <= 0) errs.faculty_salary = "Valid monthly basic salary is required";
+    if (facultyForm.createLogin && !facultyForm.password.trim()) {
+      errs.faculty_password = "Password is required when login provisioning is active";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
     setSubmitting(true);
     try {
       await erpApi.addStaff(facultyForm);
@@ -159,7 +202,7 @@ export default function StaffHrPage() {
       });
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to add faculty member");
+      showErrors({ faculty_form: err.message || "Failed to add faculty member" });
     } finally {
       setSubmitting(false);
     }
@@ -525,13 +568,19 @@ export default function StaffHrPage() {
       {/* DIALOG: ADD FACULTY MEMBER */}
       <Dialog open={isAddFacultyOpen} onOpenChange={setIsAddFacultyOpen}>
         <DialogContent className="sm:max-w-2xl bg-white text-zinc-950 max-h-[90vh] overflow-y-auto">
-          <form onSubmit={handleAddFaculty}>
+          <form noValidate onSubmit={handleAddFaculty}>
             <DialogHeader>
               <DialogTitle className="text-base font-semibold">Faculty & Staff Enrollment Form</DialogTitle>
               <DialogDescription className="text-xs text-zinc-500">
                 Complete institutional profile registration and ERP access configuration.
               </DialogDescription>
             </DialogHeader>
+
+            {formErrors.faculty_form && (
+              <p className="text-[11px] font-medium text-red-600 bg-red-50 p-2 rounded border border-red-200 mt-2 animate-in fade-in">
+                {formErrors.faculty_form}
+              </p>
+            )}
 
             <div className="space-y-4 py-4 text-xs">
               {/* SECTION 1: PERSONAL DETAILS */}
@@ -541,16 +590,26 @@ export default function StaffHrPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Full Name *</Label>
+                    <Label className="text-xs font-medium">
+                      Full Name <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
-                      required
                       placeholder="e.g. Dr. Priya Sundaram"
                       value={facultyForm.name}
-                      onChange={(e) => setFacultyForm({ ...facultyForm, name: e.target.value })}
+                      onChange={(e) => {
+                        clearFieldError("faculty_name");
+                        setFacultyForm({ ...facultyForm, name: e.target.value });
+                      }}
+                      className={formErrors.faculty_name ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formErrors.faculty_name && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.faculty_name}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Gender</Label>
+                    <Label className="text-xs font-medium">Gender</Label>
                     <Select
                       value={facultyForm.gender}
                       onValueChange={(val) => setFacultyForm({ ...facultyForm, gender: val })}
@@ -569,7 +628,7 @@ export default function StaffHrPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Date of Birth</Label>
+                    <Label className="text-xs font-medium">Date of Birth</Label>
                     <Input
                       type="date"
                       value={facultyForm.dob}
@@ -577,7 +636,7 @@ export default function StaffHrPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Blood Group</Label>
+                    <Label className="text-xs font-medium">Blood Group</Label>
                     <Select
                       value={facultyForm.bloodGroup}
                       onValueChange={(val) => setFacultyForm({ ...facultyForm, bloodGroup: val })}
@@ -598,7 +657,7 @@ export default function StaffHrPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Aadhar Card Number</Label>
+                    <Label className="text-xs font-medium">Aadhar Card Number</Label>
                     <Input
                       placeholder="12-digit UIDAI"
                       value={facultyForm.aadharNumber}
@@ -608,7 +667,7 @@ export default function StaffHrPage() {
                 </div>
 
                 <div className="space-y-1 mt-2">
-                  <Label className="text-xs">Faculty Photo URL</Label>
+                  <Label className="text-xs font-medium">Faculty Photo URL</Label>
                   <Input
                     placeholder="https://images.unsplash.com/... or public image link"
                     value={facultyForm.photoUrl}
@@ -624,26 +683,46 @@ export default function StaffHrPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Phone Number *</Label>
+                    <Label className="text-xs font-medium">
+                      Phone Number <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
-                      required
                       placeholder="+91 9876543210"
                       value={facultyForm.phone}
-                      onChange={(e) => setFacultyForm({ ...facultyForm, phone: e.target.value })}
+                      onChange={(e) => {
+                        clearFieldError("faculty_phone");
+                        setFacultyForm({ ...facultyForm, phone: e.target.value });
+                      }}
+                      className={formErrors.faculty_phone ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formErrors.faculty_phone && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.faculty_phone}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Official Email *</Label>
+                    <Label className="text-xs font-medium">
+                      Official Email <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
-                      required
                       type="email"
                       placeholder="priya.s@greenwoodhigh.edu"
                       value={facultyForm.email}
-                      onChange={(e) => setFacultyForm({ ...facultyForm, email: e.target.value })}
+                      onChange={(e) => {
+                        clearFieldError("faculty_email");
+                        setFacultyForm({ ...facultyForm, email: e.target.value });
+                      }}
+                      className={formErrors.faculty_email ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formErrors.faculty_email && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.faculty_email}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Emergency Contact</Label>
+                    <Label className="text-xs font-medium">Emergency Contact</Label>
                     <Input
                       placeholder="+91 9444012345 (Spouse/Parent)"
                       value={facultyForm.emergencyPhone}
@@ -653,7 +732,7 @@ export default function StaffHrPage() {
                 </div>
 
                 <div className="space-y-1 mt-2">
-                  <Label className="text-xs">Residential Address</Label>
+                  <Label className="text-xs font-medium">Residential Address</Label>
                   <Input
                     placeholder="Door No, Street Name, City, Postal Code"
                     value={facultyForm.address}
@@ -669,7 +748,7 @@ export default function StaffHrPage() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Employee Code</Label>
+                    <Label className="text-xs font-medium">Employee Code</Label>
                     <Input
                       placeholder="e.g. FAC-1021"
                       value={facultyForm.employeeCode}
@@ -677,7 +756,7 @@ export default function StaffHrPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">System Role</Label>
+                    <Label className="text-xs font-medium">System Role</Label>
                     <Select
                       value={facultyForm.role}
                       onValueChange={(val) => setFacultyForm({ ...facultyForm, role: val })}
@@ -694,19 +773,29 @@ export default function StaffHrPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Designation *</Label>
+                    <Label className="text-xs font-medium">
+                      Designation <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
-                      required
                       placeholder="PGT Mathematics Teacher"
                       value={facultyForm.designation}
-                      onChange={(e) => setFacultyForm({ ...facultyForm, designation: e.target.value })}
+                      onChange={(e) => {
+                        clearFieldError("faculty_designation");
+                        setFacultyForm({ ...facultyForm, designation: e.target.value });
+                      }}
+                      className={formErrors.faculty_designation ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formErrors.faculty_designation && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.faculty_designation}
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Highest Qualification</Label>
+                    <Label className="text-xs font-medium">Highest Qualification</Label>
                     <Input
                       placeholder="M.Sc, B.Ed, M.Phil"
                       value={facultyForm.qualification}
@@ -714,7 +803,7 @@ export default function StaffHrPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Subject / Specialization</Label>
+                    <Label className="text-xs font-medium">Subject / Specialization</Label>
                     <Input
                       placeholder="e.g. Mathematics & Statistics"
                       value={facultyForm.specialization}
@@ -722,7 +811,7 @@ export default function StaffHrPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Experience (Years)</Label>
+                    <Label className="text-xs font-medium">Experience (Years)</Label>
                     <Input
                       type="number"
                       min="0"
@@ -734,7 +823,7 @@ export default function StaffHrPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-2">
                   <div className="space-y-1">
-                    <Label className="text-xs">Employment Type</Label>
+                    <Label className="text-xs font-medium">Employment Type</Label>
                     <Select
                       value={facultyForm.employmentType}
                       onValueChange={(val) => setFacultyForm({ ...facultyForm, employmentType: val })}
@@ -750,7 +839,7 @@ export default function StaffHrPage() {
                     </Select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Joining Date</Label>
+                    <Label className="text-xs font-medium">Joining Date</Label>
                     <Input
                       type="date"
                       value={facultyForm.joiningDate}
@@ -758,12 +847,23 @@ export default function StaffHrPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Monthly Basic Salary (₹)</Label>
+                    <Label className="text-xs font-medium">
+                      Monthly Basic Salary (₹) <span className="text-red-500 font-bold">*</span>
+                    </Label>
                     <Input
                       type="number"
                       value={facultyForm.salary}
-                      onChange={(e) => setFacultyForm({ ...facultyForm, salary: e.target.value })}
+                      onChange={(e) => {
+                        clearFieldError("faculty_salary");
+                        setFacultyForm({ ...facultyForm, salary: e.target.value });
+                      }}
+                      className={formErrors.faculty_salary ? "border-red-500 focus-visible:ring-red-500" : ""}
                     />
+                    {formErrors.faculty_salary && (
+                      <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                        {formErrors.faculty_salary}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -787,15 +887,26 @@ export default function StaffHrPage() {
                   {facultyForm.createLogin && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Initial Password</Label>
+                        <Label className="text-xs font-medium">
+                          Initial Password <span className="text-red-500 font-bold">*</span>
+                        </Label>
                         <Input
                           type="text"
                           value={facultyForm.password}
-                          onChange={(e) => setFacultyForm({ ...facultyForm, password: e.target.value })}
+                          onChange={(e) => {
+                            clearFieldError("faculty_password");
+                            setFacultyForm({ ...facultyForm, password: e.target.value });
+                          }}
+                          className={formErrors.faculty_password ? "border-red-500 focus-visible:ring-red-500" : ""}
                         />
+                        {formErrors.faculty_password && (
+                          <p className="text-[11px] font-medium text-red-600 mt-1 animate-in fade-in">
+                            {formErrors.faculty_password}
+                          </p>
+                        )}
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs">Account Tier</Label>
+                        <Label className="text-xs font-medium">Account Tier</Label>
                         <div className="p-2 rounded border border-zinc-200 bg-white font-mono text-xs text-zinc-700">
                           Role: {facultyForm.role}
                         </div>
