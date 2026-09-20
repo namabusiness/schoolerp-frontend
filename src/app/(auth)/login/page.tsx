@@ -18,11 +18,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  InputOTP,
-  InputOTPGroup,
-  InputOTPSlot,
-} from "@/components/ui/input-otp";
-import {
   Building2,
   ShieldCheck,
   GraduationCap,
@@ -37,7 +32,7 @@ import { erpApi } from "@/lib/api";
 
 const SCHOOL_ROLES = [
   { id: "SCHOOL_ADMIN", label: "Admin", icon: Building2, defaultEmail: "admin@greenwoodhigh.edu", path: "/greenwood-high/dashboard" },
-  { id: "TEACHER", label: "Teacher", icon: BookOpen, defaultEmail: "teacher@greenwoodhigh.edu", path: "/greenwood-high/academics" },
+  { id: "TEACHER", label: "Teacher", icon: BookOpen, defaultEmail: "arvindh.nathan@greenwoodhigh.edu", path: "/greenwood-high/teacher" },
   { id: "TRANSPORT_MANAGER", label: "Transport Manager", icon: Compass, defaultEmail: "transport@greenwoodhigh.edu", path: "/greenwood-high/transport" },
   { id: "DRIVER", label: "Driver", icon: Bus, defaultEmail: "driver@greenwoodhigh.edu", path: "/greenwood-high/transport" },
 ];
@@ -46,7 +41,6 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
-  const [otp, setOtp] = React.useState("");
   const [activeTab, setActiveTab] = React.useState("school");
   const [selectedRole, setSelectedRole] = React.useState("SCHOOL_ADMIN");
   const [loading, setLoading] = React.useState(false);
@@ -57,7 +51,7 @@ export default function LoginPage() {
       case "SUPER_ADMIN":
         return "/super-admin";
       case "TEACHER":
-        return "/greenwood-high/academics";
+        return "/greenwood-high/teacher";
       case "DRIVER":
       case "TRANSPORT_MANAGER":
         return "/greenwood-high/transport";
@@ -83,8 +77,9 @@ export default function LoginPage() {
       const res = await erpApi.login(loginEmail, password, targetRole);
 
       localStorage.setItem("token", res.accessToken || "mock-token");
-      localStorage.setItem("demo_role", targetRole);
-      localStorage.setItem("auth_role", targetRole);
+      const resolvedRole = res.user?.role || targetRole;
+      localStorage.setItem("demo_role", resolvedRole);
+      localStorage.setItem("auth_role", resolvedRole);
       if (res.user) {
         localStorage.setItem("user", JSON.stringify(res.user));
       }
@@ -94,40 +89,12 @@ export default function LoginPage() {
         localStorage.setItem("school_id", "school-greenwood-high");
       }
 
-      router.push(getTargetPath(targetRole));
+      router.push(getTargetPath(resolvedRole));
     } catch (err: any) {
-      // Graceful fallback for demo testing
-      localStorage.setItem("demo_role", targetRole);
-      localStorage.setItem("auth_role", targetRole);
-      const fallbackUser = {
-        name: SCHOOL_ROLES.find((r) => r.id === targetRole)?.label || targetRole,
-        role: targetRole,
-        email: loginEmail,
-      };
-      localStorage.setItem("user", JSON.stringify(fallbackUser));
-      if (targetRole !== "SUPER_ADMIN") {
-        localStorage.setItem("school_id", "school-greenwood-high");
-      }
-      router.push(getTargetPath(targetRole));
+      setErrorMsg(err.message || "Invalid credentials. Please check your email and password.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleQuickDemo = (role: string) => {
-    localStorage.setItem("demo_role", role);
-    localStorage.setItem("auth_role", role);
-    const roleInfo = SCHOOL_ROLES.find((r) => r.id === role);
-    const demoUser = {
-      name: roleInfo?.label || role,
-      role: role,
-      email: roleInfo?.defaultEmail || `${role.toLowerCase()}@schoolerp.com`,
-    };
-    localStorage.setItem("user", JSON.stringify(demoUser));
-    if (role !== "SUPER_ADMIN") {
-      localStorage.setItem("school_id", "school-greenwood-high");
-    }
-    router.push(getTargetPath(role));
   };
 
   return (
@@ -252,22 +219,6 @@ export default function LoginPage() {
                   />
                 </div>
 
-                {activeTab === "super" && (
-                  <div className="space-y-1.5 pt-1">
-                    <Label className="text-xs text-zinc-600">Security Verification PIN (OTP)</Label>
-                    <div className="flex justify-center py-1">
-                      <InputOTP maxLength={4} value={otp} onChange={setOtp}>
-                        <InputOTPGroup>
-                          <InputOTPSlot index={0} className="border-zinc-300 bg-white text-zinc-900" />
-                          <InputOTPSlot index={1} className="border-zinc-300 bg-white text-zinc-900" />
-                          <InputOTPSlot index={2} className="border-zinc-300 bg-white text-zinc-900" />
-                          <InputOTPSlot index={3} className="border-zinc-300 bg-white text-zinc-900" />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </div>
-                  </div>
-                )}
-
                 <Button
                   type="submit"
                   disabled={loading}
@@ -288,59 +239,6 @@ export default function LoginPage() {
               </form>
             </Tabs>
           </CardContent>
-
-          <CardFooter className="flex flex-col border-t border-zinc-200 pt-4 gap-2">
-            <div className="text-[11px] text-zinc-500 text-center font-mono">
-              QUICK LAUNCH DEMO ACCOUNTS
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 w-full">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickDemo("TEACHER")}
-                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
-              >
-                <BookOpen className="h-3 w-3 mr-1 text-zinc-600" />
-                Teacher
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickDemo("DRIVER")}
-                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
-              >
-                <Bus className="h-3 w-3 mr-1 text-zinc-600" />
-                Driver
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickDemo("TRANSPORT_MANAGER")}
-                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
-              >
-                <Compass className="h-3 w-3 mr-1 text-zinc-600" />
-                Transport Mgr
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickDemo("SCHOOL_ADMIN")}
-                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8"
-              >
-                <Building2 className="h-3 w-3 mr-1 text-zinc-600" />
-                School Admin
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleQuickDemo("SUPER_ADMIN")}
-                className="text-xs border-zinc-200 hover:bg-zinc-100 text-zinc-800 font-mono h-8 col-span-2 sm:col-span-2"
-              >
-                <ShieldCheck className="h-3 w-3 mr-1 text-zinc-600" />
-                Super Admin
-              </Button>
-            </div>
-          </CardFooter>
         </Card>
 
         {/* Security watermark badge */}

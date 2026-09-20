@@ -156,7 +156,7 @@ export default function StaffHrPage() {
     open: false,
     title: "",
     description: "",
-    onConfirm: async () => {},
+    onConfirm: async () => { },
   });
   const [confirmLoading, setConfirmLoading] = React.useState(false);
 
@@ -437,7 +437,7 @@ export default function StaffHrPage() {
               <CheckCircle2 className="h-3.5 w-3.5" /> Payroll Processed
             </Badge>
           )}
-          <Button
+          {/* <Button
             size="sm"
             variant="outline"
             onClick={handleRunPayroll}
@@ -445,14 +445,14 @@ export default function StaffHrPage() {
           >
             <DollarSign className="h-3.5 w-3.5 mr-1" />
             Run Monthly Payroll
-          </Button>
+          </Button> */}
           <Button
             size="sm"
             onClick={() => setIsAddFacultyOpen(true)}
             className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold"
           >
             <Plus className="h-3.5 w-3.5 mr-1" />
-            Add Faculty Member
+            Enroll Staff / User
           </Button>
         </div>
       </div>
@@ -482,13 +482,13 @@ export default function StaffHrPage() {
             <Clock className="h-3.5 w-3.5 mr-1.5" />
             Leave Management ({leaves.length})
           </TabsTrigger>
-          <TabsTrigger
+          {/* <TabsTrigger
             value="payroll"
             className="text-xs data-[state=active]:bg-white data-[state=active]:text-zinc-950 data-[state=active]:shadow-2xs"
           >
             <DollarSign className="h-3.5 w-3.5 mr-1.5" />
             Payroll & Digital Payslips
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {/* TAB 1: FACULTY DIRECTORY */}
@@ -971,9 +971,10 @@ export default function StaffHrPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="TEACHER">Teacher</SelectItem>
+                        <SelectItem value="DRIVER">Driver</SelectItem>
                         <SelectItem value="TRANSPORT_MANAGER">Transport Manager</SelectItem>
-                        <SelectItem value="STAFF">Administrative Staff</SelectItem>
-                        <SelectItem value="PRINCIPAL">Principal</SelectItem>
+                        <SelectItem value="STAFF">Administrative Staff / Manager</SelectItem>
+                        <SelectItem value="PRINCIPAL">Principal / Administrator</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

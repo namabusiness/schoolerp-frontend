@@ -78,6 +78,7 @@ export default function PlatformAccessPage() {
   const [form, setForm] = React.useState({
     name: "",
     email: "",
+    phone: "",
     password: "Access@123",
     role: "TEACHER",
     schoolId: "",
@@ -122,6 +123,7 @@ export default function PlatformAccessPage() {
       setForm({
         name: "",
         email: "",
+        phone: "",
         password: "Access@123",
         role: "TEACHER",
         schoolId: schools[0]?.id || "",
@@ -162,10 +164,10 @@ export default function PlatformAccessPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-zinc-950">
-            Access Setup & Identity Provisioning
+            School Users & Access Provisioning
           </h1>
           <p className="text-xs text-zinc-500 font-mono mt-1">
-            SUPER ADMIN FLOW: CONFIGURE CREDENTIALS FOR TEACHERS, DRIVERS, TRANSPORT MANAGERS & ADMINISTRATORS
+            SUPER ADMIN FLOW: PROVISION USERS & CREDENTIALS SPECIFICALLY BY SCHOOL (TEACHERS, DRIVERS, TRANSPORT MANAGERS, PRINCIPALS)
           </p>
         </div>
 
@@ -175,7 +177,7 @@ export default function PlatformAccessPage() {
           className="bg-zinc-950 text-white hover:bg-zinc-800 text-xs font-semibold"
         >
           <KeyRound className="h-3.5 w-3.5 mr-1.5" />
-          Setup Access & Credentials
+          Provision User for School
         </Button>
       </div>
 
@@ -442,6 +444,16 @@ export default function PlatformAccessPage() {
                   placeholder="ramesh.driver@greenwoodhigh.edu"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">Contact Phone Number</Label>
+                <Input
+                  type="tel"
+                  placeholder="+91 9876543210"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 />
               </div>
 

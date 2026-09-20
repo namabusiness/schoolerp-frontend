@@ -54,6 +54,8 @@ export const erpApi = {
   login: (email: string, password?: string, demoRole?: string) =>
     fetchApi('/auth/login', { method: 'POST', body: JSON.stringify({ email, password, demoRole }) }),
   getProfile: () => fetchApi('/auth/me'),
+  setupPassword: (userId: string, password: string) =>
+    fetchApi('/auth/setup-password', { method: 'POST', body: JSON.stringify({ userId, password }) }),
 
   // Super Admin Platform
   getPlatformStats: () => fetchApi('/super-admin/stats'),
@@ -96,9 +98,19 @@ export const erpApi = {
     fetchApi(`/attendance/session?sectionId=${sectionId}&date=${date}`),
   submitAttendance: (sessionId: string, records: any[], lockSession?: boolean) =>
     fetchApi('/attendance/submit', { method: 'POST', body: JSON.stringify({ sessionId, records, lockSession }) }),
+  getMonthlyAttendanceMatrix: (sectionId: string, year?: number, month?: number) => {
+    const params = new URLSearchParams();
+    params.set('sectionId', sectionId);
+    if (year) params.set('year', year.toString());
+    if (month) params.set('month', month.toString());
+    return fetchApi(`/attendance/monthly-matrix?${params.toString()}`);
+  },
 
   // Homework
-  getHomeworks: () => fetchApi('/homework'),
+  getHomeworks: (params?: { classId?: string; sectionId?: string; subjectId?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/homework${query}`);
+  },
   createHomework: (data: any) => fetchApi('/homework', { method: 'POST', body: JSON.stringify(data) }),
   submitHomework: (id: string, data: any) => fetchApi(`/homework/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
   gradeHomework: (submissionId: string, grade: string, feedback: string) =>
@@ -113,6 +125,17 @@ export const erpApi = {
     fetchApi(`/examinations/${examId}/generate-report-cards`, { method: 'POST', body: JSON.stringify({ classId }) }),
   getReportCard: (studentId: string, examId: string) =>
     fetchApi(`/examinations/report-card/${studentId}?examId=${examId}`),
+  getQuestionPapers: (params?: { classId?: string; subjectId?: string; teacherId?: string; category?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/examinations/question-papers${query}`);
+  },
+  createQuestionPaper: (data: any) =>
+    fetchApi('/examinations/question-papers', { method: 'POST', body: JSON.stringify(data) }),
+  deleteQuestionPaper: (id: string) =>
+    fetchApi(`/examinations/question-papers/${id}`, { method: 'DELETE' }),
+  enrollClassMarks: (data: any) =>
+    fetchApi('/examinations/enroll-marks', { method: 'POST', body: JSON.stringify(data) }),
+
 
   // Fees & Finance
   getFinanceSummary: () => fetchApi('/fees/summary'),
