@@ -71,10 +71,6 @@ export const erpApi = {
   getAuditLogs: (params?: any) => fetchApi('/super-admin/audit-logs', { method: 'GET' }),
   getPlans: () => fetchApi('/super-admin/plans'),
 
-  // Academics
-  getClasses: () => fetchApi('/academics/classes'),
-  createClass: (data: any) => fetchApi('/academics/classes', { method: 'POST', body: JSON.stringify(data) }),
-  getTimetable: (params?: any) => fetchApi(`/academics/timetable?${new URLSearchParams(params || {})}`),
 
   // Admissions
   getEnquiries: () => fetchApi('/admissions/enquiries'),
@@ -149,6 +145,7 @@ export const erpApi = {
   // HR & Staff / Faculty
   getStaff: (departmentId?: string) => fetchApi(`/hr/staff${departmentId ? `?departmentId=${departmentId}` : ''}`),
   addStaff: (data: any) => fetchApi('/hr/staff', { method: 'POST', body: JSON.stringify(data) }),
+  updateStaff: (id: string, data: any) => fetchApi(`/hr/staff/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   deleteStaff: (id: string) => fetchApi(`/hr/staff/${id}`, { method: 'DELETE' }),
   getDepartments: () => fetchApi('/hr/departments'),
   createDepartment: (name: string) => fetchApi('/hr/departments', { method: 'POST', body: JSON.stringify({ name }) }),
@@ -176,4 +173,52 @@ export const erpApi = {
   // Promotion
   getClearance: (studentId: string) => fetchApi(`/promotion/clearance/${studentId}`),
   processPromotion: (data: any) => fetchApi('/promotion/process', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Academics, Classes, Teachers & Student Roster
+  getAcademicYears: () => fetchApi('/academics/years'),
+  createAcademicYear: (data: any) => fetchApi('/academics/years', { method: 'POST', body: JSON.stringify(data) }),
+  getClasses: () => fetchApi('/academics/classes'),
+  createClass: (data: { name: string; code: string; classTeacherId?: string; initialSections?: string[] }) =>
+    fetchApi('/academics/classes', { method: 'POST', body: JSON.stringify(data) }),
+  deleteClass: (id: string) => fetchApi(`/academics/classes/${id}`, { method: 'DELETE' }),
+  createSection: (classId: string, data: { name: string; capacity?: number; classTeacherId?: string }) =>
+    fetchApi(`/academics/classes/${classId}/sections`, { method: 'POST', body: JSON.stringify(data) }),
+  deleteSection: (classId: string, sectionId: string) =>
+    fetchApi(`/academics/classes/${classId}/sections/${sectionId}`, { method: 'DELETE' }),
+  assignClassTeacher: (classId: string, teacherId: string | null) =>
+    fetchApi(`/academics/classes/${classId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId }) }),
+  assignSectionTeacher: (sectionId: string, teacherId: string | null) =>
+    fetchApi(`/academics/sections/${sectionId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId }) }),
+  getClassStudents: (classId: string, sectionId?: string) =>
+    fetchApi(`/academics/classes/${classId}/students${sectionId && sectionId !== 'ALL' ? `?sectionId=${sectionId}` : ''}`),
+  getUnassignedStudents: () =>
+    fetchApi('/academics/unassigned-students'),
+  assignStudentToClass: (data: { studentId: string; classId: string; sectionId: string; rollNumber?: string }) =>
+    fetchApi('/academics/assign-student', { method: 'POST', body: JSON.stringify(data) }),
+  unassignStudentFromClass: (studentId: string) =>
+    fetchApi(`/academics/unassign-student/${studentId}`, { method: 'POST' }),
+  getSubjects: (classId?: string) =>
+    fetchApi(`/academics/subjects${classId ? `?classId=${classId}` : ''}`),
+  createSubject: (data: any) =>
+    fetchApi('/academics/subjects', { method: 'POST', body: JSON.stringify(data) }),
+  assignSubjectTeacher: (subjectId: string, teacherId: string | null) =>
+    fetchApi(`/academics/subjects/${subjectId}/teacher`, { method: 'PATCH', body: JSON.stringify({ teacherId }) }),
+  deleteSubject: (subjectId: string) =>
+    fetchApi(`/academics/subjects/${subjectId}`, { method: 'DELETE' }),
+  getTimetable: (params: any) => {
+    const query = new URLSearchParams(params).toString();
+    return fetchApi(`/academics/timetable?${query}`);
+  },
+  createTimetableSlot: (data: any) =>
+    fetchApi('/academics/timetable', { method: 'POST', body: JSON.stringify(data) }),
+  generateTimetable: (data: any) =>
+    fetchApi('/academics/timetable/generate', { method: 'POST', body: JSON.stringify(data) }),
+  approveTimetable: (data: { classId: string; sectionId?: string }) =>
+    fetchApi('/academics/timetable/approve', { method: 'POST', body: JSON.stringify(data) }),
+  getFacultyTimetable: (teacherId: string) =>
+    fetchApi(`/academics/timetable/faculty/${teacherId}`),
+  updateTimetableSlot: (id: string, data: any) =>
+    fetchApi(`/academics/timetable/slot/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  resetClassTimetable: (classId: string, sectionId?: string) =>
+    fetchApi(`/academics/timetable/class/${classId}${sectionId && sectionId !== 'ALL' ? `?sectionId=${sectionId}` : ''}`, { method: 'DELETE' }),
 };

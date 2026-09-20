@@ -100,7 +100,7 @@ export default function LoginPage() {
       localStorage.setItem("demo_role", targetRole);
       localStorage.setItem("auth_role", targetRole);
       const fallbackUser = {
-        name: SCHOOL_ROLES.find((r) => r.id === targetRole)?.title || targetRole,
+        name: SCHOOL_ROLES.find((r) => r.id === targetRole)?.label || targetRole,
         role: targetRole,
         email: loginEmail,
       };
@@ -119,7 +119,7 @@ export default function LoginPage() {
     localStorage.setItem("auth_role", role);
     const roleInfo = SCHOOL_ROLES.find((r) => r.id === role);
     const demoUser = {
-      name: roleInfo?.title || role,
+      name: roleInfo?.label || role,
       role: role,
       email: roleInfo?.defaultEmail || `${role.toLowerCase()}@schoolerp.com`,
     };

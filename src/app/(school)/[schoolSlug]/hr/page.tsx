@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Briefcase,
   Plus,
@@ -55,8 +56,15 @@ import {
   KeyRound,
   ShieldCheck,
   User,
+  Pencil,
+  CalendarDays,
+  Check,
+  Layers,
+  AlertCircle,
+  Building,
 } from "lucide-react";
 import { erpApi } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 export default function StaffHrPage() {
   const [activeTab, setActiveTab] = React.useState("directory");
@@ -98,18 +106,73 @@ export default function StaffHrPage() {
 
   const [payrollRan, setPayrollRan] = React.useState(false);
   const [selectedPayslip, setSelectedPayslip] = React.useState<any | null>(null);
+  const [classes, setClasses] = React.useState<any[]>([]);
+
+  // Edit Faculty & Subject Mapping Modal States
+  const [isEditFacultyOpen, setIsEditFacultyOpen] = React.useState(false);
+  const [editingStaff, setEditingStaff] = React.useState<any | null>(null);
+  const [editFacultyForm, setEditFacultyForm] = React.useState({
+    name: "",
+    gender: "MALE",
+    dob: "",
+    bloodGroup: "O+",
+    phone: "",
+    email: "",
+    aadharNumber: "",
+    photoUrl: "",
+    address: "",
+    emergencyPhone: "",
+    employeeCode: "",
+    role: "TEACHER",
+    designation: "Teacher",
+    departmentId: "",
+    qualification: "M.Sc, B.Ed",
+    specialization: "Mathematics",
+    experienceYears: "5",
+    employmentType: "FULL_TIME",
+    salary: "45000",
+    status: "ACTIVE",
+  });
+  const [selectedSubjectIds, setSelectedSubjectIds] = React.useState<string[]>([]);
+  const [editFacultyGradeId, setEditFacultyGradeId] = React.useState<string>("");
+  const [editSubmitting, setEditSubmitting] = React.useState(false);
+
+  // Modern In-App Confirm Dialog State
+  const [confirmModal, setConfirmModal] = React.useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    variant?: "destructive" | "default";
+    icon?: React.ReactNode;
+    itemDetails?: {
+      label?: string;
+      title: string;
+      subtitle?: string;
+      badge?: string;
+    };
+    onConfirm: () => Promise<void>;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: async () => {},
+  });
+  const [confirmLoading, setConfirmLoading] = React.useState(false);
 
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [sData, dData, lData] = await Promise.all([
+      const [sData, dData, lData, cData] = await Promise.all([
         erpApi.getStaff().catch(() => []),
         erpApi.getDepartments().catch(() => []),
         erpApi.getLeaves().catch(() => []),
+        erpApi.getClasses().catch(() => []),
       ]);
       setStaffList(Array.isArray(sData) ? sData : []);
       setDepartments(Array.isArray(dData) ? dData : []);
       setLeaves(Array.isArray(lData) ? lData : []);
+      setClasses(Array.isArray(cData) ? cData : []);
     } catch (err) {
       console.error("Failed to load staff/HR data:", err);
     } finally {
@@ -208,14 +271,114 @@ export default function StaffHrPage() {
     }
   };
 
-  const handleDeleteStaff = async (id: string, name: string) => {
-    if (!confirm(`Remove faculty member "${name}" from records?`)) return;
+  const handleDeleteStaff = (id: string, name: string) => {
+    setConfirmModal({
+      open: true,
+      title: "Remove Faculty Member?",
+      description: `Remove faculty member "${name}" from active institutional employee records?`,
+      confirmLabel: "Remove Staff",
+      variant: "destructive",
+      itemDetails: {
+        label: "Faculty Staff",
+        title: name,
+        badge: "Staff Profile",
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.deleteStaff(id);
+          showToast("Staff record removed.");
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete staff");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
+  };
+
+  const openEditFacultyModal = (staff: any) => {
+    setEditingStaff(staff);
+    setEditFacultyForm({
+      name: staff.name || "",
+      gender: staff.gender || "MALE",
+      dob: staff.dob ? new Date(staff.dob).toISOString().split("T")[0] : "",
+      bloodGroup: staff.bloodGroup || "O+",
+      phone: staff.phone || "",
+      email: staff.email || "",
+      aadharNumber: staff.aadharNumber || "",
+      photoUrl: staff.photoUrl || "",
+      address: staff.address || "",
+      emergencyPhone: staff.emergencyPhone || "",
+      employeeCode: staff.employeeCode || "",
+      role: staff.role || "TEACHER",
+      designation: staff.designation || "Teacher",
+      departmentId: staff.departmentId || "",
+      qualification: staff.qualification || "",
+      specialization: staff.specialization || "",
+      experienceYears: String(staff.experienceYears !== undefined ? staff.experienceYears : 5),
+      employmentType: staff.employmentType || "FULL_TIME",
+      salary: String(staff.salary || 45000),
+      status: staff.status || "ACTIVE",
+    });
+    // Set currently taught subjects IDs
+    const currentSubjectIds = (staff.taughtSubjects || []).map((s: any) => s.id);
+    setSelectedSubjectIds(currentSubjectIds);
+    // Default grade selector to first taught subject's grade, or first class
+    const initialGradeId =
+      staff.taughtSubjects?.[0]?.gradeClass?.id ||
+      staff.taughtSubjects?.[0]?.classId ||
+      classes[0]?.id ||
+      "";
+    setEditFacultyGradeId(initialGradeId);
+    setIsEditFacultyOpen(true);
+  };
+
+  const toggleSubject = (subjectId: string) => {
+    setSelectedSubjectIds((prev) =>
+      prev.includes(subjectId) ? prev.filter((id) => id !== subjectId) : [...prev, subjectId]
+    );
+  };
+
+  const handleUpdateFaculty = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingStaff) return;
+
+    const errs: Record<string, string> = {};
+    if (!editFacultyForm.name.trim()) errs.edit_name = "Full name is required";
+    if (!editFacultyForm.phone.trim()) errs.edit_phone = "Contact phone number is required";
+    if (!editFacultyForm.email.trim()) {
+      errs.edit_email = "Official email address is required";
+    } else if (!editFacultyForm.email.includes("@")) {
+      errs.edit_email = "Please provide a valid email address";
+    }
+    if (!editFacultyForm.designation.trim()) errs.edit_designation = "Official designation is required";
+    if (!editFacultyForm.salary || Number(editFacultyForm.salary) < 0) {
+      errs.edit_salary = "Valid monthly basic salary is required";
+    }
+
+    if (Object.keys(errs).length > 0) {
+      showErrors(errs);
+      return;
+    }
+
+    setEditSubmitting(true);
     try {
-      await erpApi.deleteStaff(id);
-      showToast("Staff record removed.");
+      await erpApi.updateStaff(editingStaff.id, {
+        ...editFacultyForm,
+        subjectIds: selectedSubjectIds,
+      });
+
+      showToast(`Faculty profile and teaching subject mappings for "${editFacultyForm.name}" updated. Timetable synchronized.`);
+      setIsEditFacultyOpen(false);
+      setEditingStaff(null);
       await loadData();
     } catch (err: any) {
-      alert(err.message || "Failed to delete staff");
+      showErrors({ edit_form: err.message || "Failed to update faculty member" });
+    } finally {
+      setEditSubmitting(false);
     }
   };
 
@@ -227,7 +390,7 @@ export default function StaffHrPage() {
       showToast("Monthly payroll processed for all active staff.");
       setTimeout(() => setPayrollRan(false), 4000);
     } catch (err: any) {
-      alert(err.message || "Failed to run payroll");
+      showToast(err.message || "Failed to run payroll");
     }
   };
 
@@ -246,6 +409,19 @@ export default function StaffHrPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modern In-App Confirmation Modal */}
+      <ConfirmDialog
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal((prev) => ({ ...prev, open }))}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        icon={confirmModal.icon}
+        itemDetails={confirmModal.itemDetails}
+        isLoading={confirmLoading}
+        onConfirm={confirmModal.onConfirm}
+      />
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -359,8 +535,9 @@ export default function StaffHrPage() {
                   <TableHeader>
                     <TableRow className="border-b border-zinc-100 bg-zinc-50/50">
                       <TableHead className="text-xs font-mono text-zinc-500">EMPLOYEE</TableHead>
-                      <TableHead className="text-xs font-mono text-zinc-500">ROLE & DESIGNATION</TableHead>
-                      <TableHead className="text-xs font-mono text-zinc-500">QUALIFICATION & SUBJECTS</TableHead>
+                      <TableHead className="text-xs font-mono text-zinc-500">ROLE &amp; DESIGNATION</TableHead>
+                      <TableHead className="text-xs font-mono text-zinc-500">QUALIFICATION</TableHead>
+                      <TableHead className="text-xs font-mono text-zinc-500">SUBJECTS CAN HANDLE</TableHead>
                       <TableHead className="text-xs font-mono text-zinc-500">CONTACT</TableHead>
                       <TableHead className="text-xs font-mono text-zinc-500">LOGIN ACCESS</TableHead>
                       <TableHead className="text-xs font-mono text-zinc-500">STATUS</TableHead>
@@ -370,7 +547,7 @@ export default function StaffHrPage() {
                   <TableBody>
                     {filteredStaff.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-xs text-zinc-400">
+                        <TableCell colSpan={8} className="text-center py-8 text-xs text-zinc-400">
                           No faculty members found. Click &quot;Add Faculty Member&quot; to register teachers and staff.
                         </TableCell>
                       </TableRow>
@@ -407,13 +584,31 @@ export default function StaffHrPage() {
                           </TableCell>
 
                           <TableCell>
-                            <div className="text-zinc-800 font-mono text-[11px]">
+                            <div className="text-zinc-800 font-mono text-[11px] font-medium">
                               {staff.qualification || "Graduate"}
                             </div>
                             {staff.specialization && (
                               <div className="text-[10px] text-zinc-500">
-                                Subject: {staff.specialization}
+                                Spec: {staff.specialization}
                               </div>
+                            )}
+                          </TableCell>
+
+                          <TableCell>
+                            {staff.taughtSubjects && staff.taughtSubjects.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                {staff.taughtSubjects.map((sub: any) => (
+                                  <Badge
+                                    key={sub.id}
+                                    variant="outline"
+                                    className="text-[10px] font-mono border-zinc-300 bg-zinc-50 text-zinc-900 px-1.5 py-0"
+                                  >
+                                    {sub.gradeClass?.name || "Grade"}: {sub.name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="text-zinc-400 text-[10px] font-mono italic">No subjects assigned</span>
                             )}
                           </TableCell>
 
@@ -443,14 +638,24 @@ export default function StaffHrPage() {
                           </TableCell>
 
                           <TableCell className="text-right">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDeleteStaff(staff.id, staff.name)}
-                              className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditFacultyModal(staff)}
+                                className="h-7 px-2 text-xs border-zinc-300 hover:bg-zinc-100 text-zinc-800 font-medium"
+                              >
+                                <Pencil className="h-3.5 w-3.5 mr-1 text-zinc-600" /> Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteStaff(staff.id, staff.name)}
+                                className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -935,6 +1140,498 @@ export default function StaffHrPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* =========================================================================
+          DIALOG: EDIT FACULTY MEMBER & TEACHING ALLOTMENTS
+         ========================================================================= */}
+      <Dialog open={isEditFacultyOpen} onOpenChange={setIsEditFacultyOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white border-zinc-200">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-zinc-950 flex items-center gap-2">
+              <Pencil className="h-4 w-4 text-zinc-900" />
+              Edit Faculty Member &amp; Subject Assignments
+            </DialogTitle>
+            <DialogDescription className="text-xs text-zinc-500">
+              Update faculty profile details and assign the curriculum subjects and grades this teacher can handle for teaching.
+              The Timetable Matrix in Academics will use these assignments to allocate teachers to classes.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingStaff && (
+            <form onSubmit={handleUpdateFaculty} noValidate className="space-y-4 py-2">
+              {formErrors.edit_form && (
+                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2 animate-in fade-in">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{formErrors.edit_form}</span>
+                </div>
+              )}
+
+              {/* Section 1: Core Profile & Contact */}
+              <div className="p-3.5 rounded-xl border border-zinc-200 bg-zinc-50/50 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold text-zinc-900 uppercase font-mono tracking-wider">
+                    1. Profile &amp; Employment Details
+                  </div>
+                  <Badge variant="outline" className="text-[10px] font-mono border-zinc-300">
+                    ID: {editingStaff.employeeCode}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">
+                      Full Name <span className="text-red-500 font-bold">*</span>
+                    </Label>
+                    <Input
+                      value={editFacultyForm.name}
+                      onChange={(e) => {
+                        clearFieldError("edit_name");
+                        setEditFacultyForm({ ...editFacultyForm, name: e.target.value });
+                      }}
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                    {formErrors.edit_name && (
+                      <p className="text-[10px] text-red-600 animate-in fade-in flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {formErrors.edit_name}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">
+                      Designation <span className="text-red-500 font-bold">*</span>
+                    </Label>
+                    <Input
+                      value={editFacultyForm.designation}
+                      onChange={(e) => {
+                        clearFieldError("edit_designation");
+                        setEditFacultyForm({ ...editFacultyForm, designation: e.target.value });
+                      }}
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                    {formErrors.edit_designation && (
+                      <p className="text-[10px] text-red-600 animate-in fade-in flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {formErrors.edit_designation}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Department</Label>
+                    <Select
+                      value={editFacultyForm.departmentId}
+                      onValueChange={(val) => setEditFacultyForm({ ...editFacultyForm, departmentId: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs border-zinc-300 bg-white">
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>
+                            {d.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">
+                      Phone Number <span className="text-red-500 font-bold">*</span>
+                    </Label>
+                    <Input
+                      value={editFacultyForm.phone}
+                      onChange={(e) => {
+                        clearFieldError("edit_phone");
+                        setEditFacultyForm({ ...editFacultyForm, phone: e.target.value });
+                      }}
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                    {formErrors.edit_phone && (
+                      <p className="text-[10px] text-red-600 animate-in fade-in flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {formErrors.edit_phone}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">
+                      Email Address <span className="text-red-500 font-bold">*</span>
+                    </Label>
+                    <Input
+                      value={editFacultyForm.email}
+                      onChange={(e) => {
+                        clearFieldError("edit_email");
+                        setEditFacultyForm({ ...editFacultyForm, email: e.target.value });
+                      }}
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                    {formErrors.edit_email && (
+                      <p className="text-[10px] text-red-600 animate-in fade-in flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {formErrors.edit_email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Employment Status</Label>
+                    <Select
+                      value={editFacultyForm.status}
+                      onValueChange={(val) => setEditFacultyForm({ ...editFacultyForm, status: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs border-zinc-300 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                        <SelectItem value="ON_LEAVE">ON LEAVE</SelectItem>
+                        <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Qualification</Label>
+                    <Input
+                      value={editFacultyForm.qualification}
+                      onChange={(e) =>
+                        setEditFacultyForm({ ...editFacultyForm, qualification: e.target.value })
+                      }
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Primary Specialization</Label>
+                    <Input
+                      value={editFacultyForm.specialization}
+                      onChange={(e) => setEditFacultyForm({ ...editFacultyForm, specialization: e.target.value })}
+                      placeholder="e.g. Mathematics, Physics"
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Monthly Salary (₹)</Label>
+                    <Input
+                      type="number"
+                      value={editFacultyForm.salary}
+                      onChange={(e) => setEditFacultyForm({ ...editFacultyForm, salary: e.target.value })}
+                      className="h-8 text-xs border-zinc-300 bg-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">System Role</Label>
+                    <Select
+                      value={editFacultyForm.role}
+                      onValueChange={(val) => setEditFacultyForm({ ...editFacultyForm, role: val })}
+                    >
+                      <SelectTrigger className="h-8 text-xs border-zinc-300 bg-white">
+                        <SelectValue placeholder="Select Role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="TEACHER">Teacher</SelectItem>
+                        <SelectItem value="FACULTY">Faculty</SelectItem>
+                        <SelectItem value="LIBRARIAN">Librarian</SelectItem>
+                        <SelectItem value="ACCOUNTANT">Accountant</SelectItem>
+                        <SelectItem value="ADMIN">Admin Staff</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Aadhar Number</Label>
+                    <Input
+                      value={editFacultyForm.aadharNumber}
+                      onChange={(e) =>
+                        setEditFacultyForm({ ...editFacultyForm, aadharNumber: e.target.value })
+                      }
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold text-zinc-700">Emergency Phone</Label>
+                    <Input
+                      value={editFacultyForm.emergencyPhone}
+                      onChange={(e) =>
+                        setEditFacultyForm({ ...editFacultyForm, emergencyPhone: e.target.value })
+                      }
+                      className="h-8 text-xs border-zinc-300 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs font-semibold text-zinc-700">Residential Address</Label>
+                  <Input
+                    value={editFacultyForm.address}
+                    onChange={(e) => setEditFacultyForm({ ...editFacultyForm, address: e.target.value })}
+                    className="h-8 text-xs border-zinc-300 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Section 2: Subjects & Grades Handled (Teaching Competency) */}
+              <div className="p-3.5 rounded-xl border border-zinc-200 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-xs font-bold text-zinc-900 uppercase font-mono tracking-wider flex items-center gap-1.5">
+                      <BookOpen className="h-3.5 w-3.5 text-zinc-700" />
+                      2. Subjects &amp; Grades Handled (Teaching Competency)
+                    </div>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      Select all curriculum subjects and grades this faculty member can handle/teach.
+                      The Timetable Matrix Generator will use these assigned subjects to schedule periods and allocate teachers for each class.
+                    </p>
+                  </div>
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-300 text-xs font-mono shrink-0 ml-2">
+                    {selectedSubjectIds.length} Subject{selectedSubjectIds.length === 1 ? "" : "s"} Handled
+                  </Badge>
+                </div>
+
+                {classes.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-zinc-200">
+                    No academic classes found. Configure grades and subjects in Academic Setup first.
+                  </div>
+                ) : (
+                  (() => {
+                    const activeGrade =
+                      classes.find((c) => c.id === editFacultyGradeId) || classes[0];
+                    const activeSubjects = activeGrade?.subjects || [];
+
+                    return (
+                      <div className="space-y-3">
+                        {/* Grade Selector Bar */}
+                        <div className="p-2.5 rounded-lg border border-zinc-200 bg-zinc-50 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-xs font-semibold text-zinc-800 shrink-0">
+                              Choose Grade:
+                            </Label>
+                            <Select
+                              value={editFacultyGradeId || activeGrade?.id}
+                              onValueChange={setEditFacultyGradeId}
+                            >
+                              <SelectTrigger className="h-8 w-56 text-xs font-medium border-zinc-300 bg-white shadow-2xs">
+                                <SelectValue placeholder="Select Grade..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {classes.map((cls) => {
+                                  const subCount = (cls.subjects || []).length;
+                                  const selectedInGrade = (cls.subjects || []).filter((s: any) =>
+                                    selectedSubjectIds.includes(s.id)
+                                  ).length;
+                                  return (
+                                    <SelectItem key={cls.id} value={cls.id}>
+                                      {cls.name} ({cls.code}) — {subCount} subjects
+                                      {selectedInGrade > 0 ? ` [${selectedInGrade} assigned]` : ""}
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Quick Grade Pill Switcher */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {classes.map((cls) => {
+                              const isCurrent = (editFacultyGradeId || activeGrade?.id) === cls.id;
+                              const selectedCount = (cls.subjects || []).filter((s: any) =>
+                                selectedSubjectIds.includes(s.id)
+                              ).length;
+                              return (
+                                <button
+                                  key={cls.id}
+                                  type="button"
+                                  onClick={() => setEditFacultyGradeId(cls.id)}
+                                  className={cn(
+                                    "px-2.5 py-1 rounded-md text-xs font-mono font-medium transition-all flex items-center gap-1 border",
+                                    isCurrent
+                                      ? "bg-zinc-950 text-white border-zinc-950 shadow-2xs"
+                                      : "bg-white text-zinc-700 border-zinc-200 hover:bg-zinc-100"
+                                  )}
+                                >
+                                  <span>{cls.code || cls.name}</span>
+                                  {selectedCount > 0 && (
+                                    <span
+                                      className={cn(
+                                        "text-[10px] px-1 py-0 rounded-full font-bold",
+                                        isCurrent
+                                          ? "bg-emerald-500 text-white"
+                                          : "bg-emerald-100 text-emerald-800"
+                                      )}
+                                    >
+                                      {selectedCount}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Filtered Subjects for Selected Grade Only */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs font-mono text-zinc-500 px-1">
+                            <span>
+                              Subjects for <strong className="text-zinc-900">{activeGrade?.name}</strong> ({activeGrade?.code}):
+                            </span>
+                            <span className="text-[11px] text-zinc-400">
+                              {activeSubjects.length} subject{activeSubjects.length === 1 ? "" : "s"} available
+                            </span>
+                          </div>
+
+                          {activeSubjects.length === 0 ? (
+                            <div className="p-6 text-center text-xs text-zinc-400 bg-zinc-50 rounded-lg border border-dashed border-zinc-200 font-mono">
+                              No subjects configured for {activeGrade?.name || "this grade"}. Configure subjects in Academic Setup.
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
+                              {activeSubjects.map((sub: any) => {
+                                const isSelected = selectedSubjectIds.includes(sub.id);
+                                const isAssignedToOther =
+                                  sub.teacherId &&
+                                  sub.teacherId !== editingStaff.id &&
+                                  staffList.find((s) => s.id === sub.teacherId);
+                                const otherTeacher = isAssignedToOther
+                                  ? staffList.find((s) => s.id === sub.teacherId)
+                                  : null;
+
+                                return (
+                                  <div
+                                    key={sub.id}
+                                    onClick={() => toggleSubject(sub.id)}
+                                    className={cn(
+                                      "p-2.5 rounded-lg border text-xs cursor-pointer transition-all flex items-start gap-2.5 shadow-2xs select-none",
+                                      isSelected
+                                        ? "border-emerald-500 bg-emerald-50/60 ring-1 ring-emerald-500"
+                                        : "border-zinc-200 bg-white hover:border-zinc-300"
+                                    )}
+                                  >
+                                    <div
+                                      className={cn(
+                                        "h-4 w-4 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors",
+                                        isSelected
+                                          ? "bg-emerald-600 border-emerald-600 text-white"
+                                          : "border-zinc-300 bg-white"
+                                      )}
+                                    >
+                                      {isSelected && <Check className="h-3 w-3" />}
+                                    </div>
+
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="font-bold text-zinc-950 truncate">{sub.name}</span>
+                                        <Badge variant="outline" className="text-[9px] font-mono border-zinc-200 shrink-0">
+                                          {sub.code}
+                                        </Badge>
+                                      </div>
+
+                                      <div className="text-[10px] text-zinc-500 font-mono mt-0.5">
+                                        {sub.periodsPerWeek ? `${sub.periodsPerWeek} periods / wk curriculum load` : "Standard curriculum load"}
+                                      </div>
+
+                                      {isSelected ? (
+                                        <div className="text-[10px] text-emerald-700 font-medium flex items-center gap-1 mt-1">
+                                          <Check className="h-3 w-3 text-emerald-600 shrink-0" />
+                                          <span>Can handle this subject</span>
+                                        </div>
+                                      ) : otherTeacher ? (
+                                        <div className="text-[10px] text-amber-700 italic mt-1 truncate">
+                                          Currently assigned to: {otherTeacher.name}
+                                        </div>
+                                      ) : (
+                                        <div className="text-[10px] text-zinc-400 italic mt-1">
+                                          Available to assign
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* All Currently Selected Subjects Across Grades */}
+                        {selectedSubjectIds.length > 0 && (
+                          <div className="pt-2 border-t border-zinc-100 space-y-1.5">
+                            <div className="text-[11px] font-mono font-medium text-zinc-500">
+                              Assigned Subjects Portfolio ({selectedSubjectIds.length}):
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {selectedSubjectIds.map((subId) => {
+                                let foundSub: any = null;
+                                let foundClass: any = null;
+                                for (const cls of classes) {
+                                  const s = (cls.subjects || []).find((sub: any) => sub.id === subId);
+                                  if (s) {
+                                    foundSub = s;
+                                    foundClass = cls;
+                                    break;
+                                  }
+                                }
+                                if (!foundSub) return null;
+                                return (
+                                  <Badge
+                                    key={subId}
+                                    variant="outline"
+                                    className="text-[10px] font-mono border-emerald-300 bg-emerald-50 text-emerald-900 gap-1 pl-1.5 pr-1 py-0.5"
+                                  >
+                                    <span className="font-semibold">{foundClass?.code || foundClass?.name}:</span> {foundSub.name}
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleSubject(subId);
+                                      }}
+                                      className="hover:text-red-600 ml-0.5 text-zinc-400 hover:text-red-600 font-bold"
+                                    >
+                                      ×
+                                    </button>
+                                  </Badge>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+
+              <DialogFooter className="pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditFacultyOpen(false)}
+                  className="h-8 text-xs border-zinc-300"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editSubmitting}
+                  size="sm"
+                  className="h-8 text-xs bg-zinc-950 text-white hover:bg-zinc-800 font-medium"
+                >
+                  {editSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+                  Save Faculty &amp; Subject Assignments
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

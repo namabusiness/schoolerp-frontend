@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   Bus,
   Plus,
@@ -112,6 +113,29 @@ export default function TransportPage() {
   const [expandedRosters, setExpandedRosters] = React.useState<Record<string, boolean>>({});
   const [expandedRouteIds, setExpandedRouteIds] = React.useState<Record<string, boolean>>({});
   const [submitting, setSubmitting] = React.useState(false);
+
+  // Modern In-App Confirm Dialog State
+  const [confirmModal, setConfirmModal] = React.useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    confirmLabel?: string;
+    variant?: "destructive" | "default";
+    icon?: React.ReactNode;
+    itemDetails?: {
+      label?: string;
+      title: string;
+      subtitle?: string;
+      badge?: string;
+    };
+    onConfirm: () => Promise<void>;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: async () => {},
+  });
+  const [confirmLoading, setConfirmLoading] = React.useState(false);
 
   const toggleRouteAccordion = (routeId: string, defaultOpen: boolean = false) => {
     setExpandedRouteIds((prev) => {
@@ -414,48 +438,115 @@ export default function TransportPage() {
     }
   };
 
-  const handleDeleteDriver = async (id: string, name: string) => {
-    if (!confirm(`Delete driver "${name}"?`)) return;
-    try {
-      await erpApi.deleteDriver(id);
-      showToast("Driver removed.");
-      await loadData();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete driver");
-    }
+  const handleDeleteDriver = (id: string, name: string) => {
+    setConfirmModal({
+      open: true,
+      title: "Delete Driver?",
+      description: `Permanently remove driver "${name}" from transport staff records.`,
+      confirmLabel: "Delete Driver",
+      variant: "destructive",
+      itemDetails: {
+        label: "Transport Driver",
+        title: name,
+        badge: "Staff Profile",
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.deleteDriver(id);
+          showToast("Driver removed.");
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete driver");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
-  const handleDeleteVehicle = async (id: string, regNo: string) => {
-    if (!confirm(`Delete vehicle "${regNo}"?`)) return;
-    try {
-      await erpApi.deleteVehicle(id);
-      showToast("Vehicle removed from fleet.");
-      await loadData();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete vehicle");
-    }
+  const handleDeleteVehicle = (id: string, regNo: string) => {
+    setConfirmModal({
+      open: true,
+      title: "Delete Vehicle from Fleet?",
+      description: `Remove vehicle "${regNo}" from institutional transport fleet.`,
+      confirmLabel: "Delete Vehicle",
+      variant: "destructive",
+      itemDetails: {
+        label: "Fleet Vehicle",
+        title: regNo,
+        badge: "Fleet Asset",
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.deleteVehicle(id);
+          showToast("Vehicle removed from fleet.");
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete vehicle");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
-  const handleDeleteRoute = async (id: string, name: string) => {
-    if (!confirm(`Delete route "${name}" and its stops?`)) return;
-    try {
-      await erpApi.deleteRoute(id);
-      showToast("Route deleted.");
-      await loadData();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete route");
-    }
+  const handleDeleteRoute = (id: string, name: string) => {
+    setConfirmModal({
+      open: true,
+      title: "Delete Route & Stops?",
+      description: `Delete transport route "${name}" and all of its associated stops?`,
+      confirmLabel: "Delete Route",
+      variant: "destructive",
+      itemDetails: {
+        label: "Transit Route",
+        title: name,
+        badge: "Route & Stops",
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.deleteRoute(id);
+          showToast("Route deleted.");
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete route");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
-  const handleDeleteStop = async (routeId: string, stopId: string, stopName: string) => {
-    if (!confirm(`Delete stop "${stopName}"?`)) return;
-    try {
-      await erpApi.deleteRouteStop(routeId, stopId);
-      showToast("Stop removed from route.");
-      await loadData();
-    } catch (err: any) {
-      showToast(err.message || "Failed to delete stop");
-    }
+  const handleDeleteStop = (routeId: string, stopId: string, stopName: string) => {
+    setConfirmModal({
+      open: true,
+      title: "Delete Route Stop?",
+      description: `Remove stop "${stopName}" from this route?`,
+      confirmLabel: "Delete Stop",
+      variant: "destructive",
+      itemDetails: {
+        label: "Route Stop",
+        title: stopName,
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.deleteRouteStop(routeId, stopId);
+          showToast("Stop removed from route.");
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to delete stop");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
   const handleUpdateIncharge = async (e: React.FormEvent) => {
@@ -516,23 +607,52 @@ export default function TransportPage() {
     }
   };
 
-  const handleUnassignStudent = async (studentId: string, studentName: string) => {
+  const handleUnassignStudent = (studentId: string, studentName: string) => {
     if (!canManageAssignments) {
       showToast("Permission Denied: Only Principal and Transport Manager can unassign students.");
       return;
     }
-    if (!confirm(`Unassign student "${studentName}" from this route?`)) return;
-    try {
-      await erpApi.unassignStudent(studentId);
-      showToast(`Student "${studentName}" unassigned.`);
-      await loadData();
-    } catch (err: any) {
-      alert(err.message || "Failed to unassign student");
-    }
+    setConfirmModal({
+      open: true,
+      title: "Unassign Student from Route?",
+      description: `Unassign student "${studentName}" from transit route roster?`,
+      confirmLabel: "Unassign Student",
+      variant: "destructive",
+      itemDetails: {
+        label: "Student Commuter",
+        title: studentName,
+      },
+      onConfirm: async () => {
+        setConfirmLoading(true);
+        try {
+          await erpApi.unassignStudent(studentId);
+          showToast(`Student "${studentName}" unassigned.`);
+          setConfirmModal((prev) => ({ ...prev, open: false }));
+          await loadData();
+        } catch (err: any) {
+          showToast(err.message || "Failed to unassign student");
+        } finally {
+          setConfirmLoading(false);
+        }
+      },
+    });
   };
 
   return (
     <div className="space-y-6">
+      {/* Modern In-App Confirmation Modal */}
+      <ConfirmDialog
+        open={confirmModal.open}
+        onOpenChange={(open) => setConfirmModal((prev) => ({ ...prev, open }))}
+        title={confirmModal.title}
+        description={confirmModal.description}
+        confirmLabel={confirmModal.confirmLabel}
+        variant={confirmModal.variant}
+        icon={confirmModal.icon}
+        itemDetails={confirmModal.itemDetails}
+        isLoading={confirmLoading}
+        onConfirm={confirmModal.onConfirm}
+      />
       {/* Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
@@ -971,12 +1091,32 @@ export default function TransportPage() {
                                     <Button
                                       size="sm"
                                       variant="ghost"
-                                      onClick={async () => {
-                                        if (confirm(`Remove incharge faculty for "${route.name}"?`)) {
-                                          await erpApi.updateRouteIncharge(route.id, null);
-                                          showToast("Faculty incharge removed.");
-                                          await loadData();
-                                        }
+                                      onClick={() => {
+                                        setConfirmModal({
+                                          open: true,
+                                          title: "Remove Route Incharge?",
+                                          description: `Remove ${route.inchargeStaff.name} as designated faculty incharge for "${route.name}"?`,
+                                          confirmLabel: "Remove Incharge",
+                                          variant: "destructive",
+                                          itemDetails: {
+                                            label: "Faculty Incharge",
+                                            title: route.inchargeStaff.name,
+                                            subtitle: `Route: ${route.name}`,
+                                          },
+                                          onConfirm: async () => {
+                                            setConfirmLoading(true);
+                                            try {
+                                              await erpApi.updateRouteIncharge(route.id, null);
+                                              showToast("Faculty incharge removed.");
+                                              setConfirmModal((prev) => ({ ...prev, open: false }));
+                                              await loadData();
+                                            } catch (err: any) {
+                                              showToast(err.message || "Failed to remove incharge");
+                                            } finally {
+                                              setConfirmLoading(false);
+                                            }
+                                          },
+                                        });
                                       }}
                                       className="h-7 px-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 text-[11px]"
                                       title="Remove Incharge"
