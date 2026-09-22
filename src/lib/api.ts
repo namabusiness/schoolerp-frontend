@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (typeof window !== 'undefined' ? '/api' : 'https://backend-latest-f9da.onrender.com/api');
 
 export async function fetchApi<T = any>(
   endpoint: string,
@@ -105,16 +107,48 @@ export const erpApi = {
     if (month) params.set('month', month.toString());
     return fetchApi(`/attendance/monthly-matrix?${params.toString()}`);
   },
+  getStudentAttendance: (studentId: string) => fetchApi(`/attendance/student/${studentId}`),
 
   // Homework
   getHomeworks: (params?: { classId?: string; sectionId?: string; subjectId?: string }) => {
     const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
     return fetchApi(`/homework${query}`);
   },
+  getHomeworkSubmissions: (homeworkId: string) => fetchApi(`/homework/${homeworkId}/submissions`),
   createHomework: (data: any) => fetchApi('/homework', { method: 'POST', body: JSON.stringify(data) }),
   submitHomework: (id: string, data: any) => fetchApi(`/homework/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
-  gradeHomework: (submissionId: string, grade: string, feedback: string) =>
-    fetchApi(`/homework/submissions/${submissionId}/grade`, { method: 'PATCH', body: JSON.stringify({ grade, feedback }) }),
+  gradeHomework: (submissionId: string, grade: string, feedback: string, allowResubmit?: boolean) =>
+    fetchApi(`/homework/submissions/${submissionId}/grade`, { method: 'PATCH', body: JSON.stringify({ grade, feedback, allowResubmit }) }),
+
+  // Student Leaves (Parent & Teacher Two-Way Flow)
+  applyStudentLeave: (data: any) => fetchApi('/attendance/student-leave', { method: 'POST', body: JSON.stringify(data) }),
+  getStudentLeaves: (params?: any) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/attendance/student-leave${query}`);
+  },
+  decideStudentLeave: (id: string, decision: 'APPROVED' | 'REJECTED', reviewerName?: string, reviewNote?: string) =>
+    fetchApi(`/attendance/student-leave/${id}/decision`, { method: 'PATCH', body: JSON.stringify({ decision, reviewerName, reviewNote }) }),
+
+  // Lesson Plans & Syllabus Progress
+  getLessonPlans: (params?: { classId?: string; subjectId?: string; teacherId?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/academics/lesson-plans${query}`);
+  },
+  createLessonPlan: (data: any) => fetchApi('/academics/lesson-plans', { method: 'POST', body: JSON.stringify(data) }),
+  updateLessonPlan: (id: string, data: any) =>
+    fetchApi(`/academics/lesson-plans/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
+  deleteLessonPlan: (id: string) => fetchApi(`/academics/lesson-plans/${id}`, { method: 'DELETE' }),
+
+  // Communication & Messaging
+  getAnnouncements: (audience?: string) =>
+    fetchApi(`/communication/announcements${audience ? `?audience=${audience}` : ''}`),
+  createAnnouncement: (data: any) => fetchApi('/communication/announcements', { method: 'POST', body: JSON.stringify(data) }),
+  getMessages: (params?: { studentId?: string; parentId?: string; teacherId?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/communication/messages${query}`);
+  },
+  sendMessage: (data: any) => fetchApi('/communication/messages', { method: 'POST', body: JSON.stringify(data) }),
+  markMessageRead: (id: string) => fetchApi(`/communication/messages/${id}/read`, { method: 'PATCH' }),
 
   // Examinations
   getExams: () => fetchApi('/examinations'),
@@ -139,8 +173,12 @@ export const erpApi = {
 
   // Fees & Finance
   getFinanceSummary: () => fetchApi('/fees/summary'),
-  getInvoices: () => fetchApi('/fees/invoices'),
+  getInvoices: (params?: { status?: string; studentId?: string }) => {
+    const query = params ? `?${new URLSearchParams(params as any).toString()}` : '';
+    return fetchApi(`/fees/invoices${query}`);
+  },
   recordFeePayment: (data: any) => fetchApi('/fees/payments', { method: 'POST', body: JSON.stringify(data) }),
+
 
   // Transport & Fleet Management
   getDrivers: () => fetchApi('/transport/drivers'),
@@ -164,6 +202,8 @@ export const erpApi = {
     fetchApi(`/transport/routes/${routeId}/incharge`, { method: 'PATCH', body: JSON.stringify({ inchargeStaffId }) }),
   getTrips: () => fetchApi('/transport/trips'),
   logTrip: (data: any) => fetchApi('/transport/trips', { method: 'POST', body: JSON.stringify(data) }),
+  getStudentTransport: (studentId: string) => fetchApi(`/transport/student/${studentId}`),
+
 
   // HR & Staff / Faculty
   getStaff: (departmentId?: string) => fetchApi(`/hr/staff${departmentId ? `?departmentId=${departmentId}` : ''}`),

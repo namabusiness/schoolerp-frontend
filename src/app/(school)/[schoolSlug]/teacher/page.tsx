@@ -37,12 +37,20 @@ import {
   ChevronRight,
   Filter,
   Trash2,
+  MessageSquare,
+  Send,
+  ExternalLink,
+  FileUp,
+  RefreshCw,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -184,6 +192,7 @@ export default function TeacherPortalPage() {
   const [leaveEndDate, setLeaveEndDate] = React.useState(new Date().toISOString().split("T")[0]);
   const [leaveReason, setLeaveReason] = React.useState("");
   const [submittingLeave, setSubmittingLeave] = React.useState(false);
+  const [leaveInlineErrors, setLeaveInlineErrors] = React.useState<{ dates?: string; reason?: string }>({});
 
   // Feature 9: Academic Calendar (Set by Principal)
   const [schoolEvents, setSchoolEvents] = React.useState<any[]>([]);
@@ -193,6 +202,44 @@ export default function TeacherPortalPage() {
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
   const [resettingPassword, setResettingPassword] = React.useState(false);
+
+  // Homework Submissions Review
+  const [selectedHwForSubmissions, setSelectedHwForSubmissions] = React.useState<any>(null);
+  const [submissionsModalOpen, setSubmissionsModalOpen] = React.useState(false);
+  const [hwSubmissions, setHwSubmissions] = React.useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = React.useState(false);
+  const [gradingInputs, setGradingInputs] = React.useState<Record<string, { grade: string; feedback: string; allowResubmit: boolean }>>({});
+  const [savingGradeId, setSavingGradeId] = React.useState<string | null>(null);
+  const [hwAttachmentUrl, setHwAttachmentUrl] = React.useState("");
+
+  // Lesson Plans & Syllabus Progress
+  const [lessonPlans, setLessonPlans] = React.useState<any[]>([]);
+  const [lpModalOpen, setLpModalOpen] = React.useState(false);
+  const [lpClassId, setLpClassId] = React.useState("");
+  const [lpSubjectId, setLpSubjectId] = React.useState("");
+  const [lpTitle, setLpTitle] = React.useState("");
+  const [lpDescription, setLpDescription] = React.useState("");
+  const [lpPlannedDate, setLpPlannedDate] = React.useState(new Date().toISOString().split("T")[0]);
+  const [lpCompletionRate, setLpCompletionRate] = React.useState(0);
+  const [lpResourcesUrl, setLpResourcesUrl] = React.useState("");
+  const [savingLp, setSavingLp] = React.useState(false);
+
+  // Student Leave Requests from Parents
+  const [studentLeaves, setStudentLeaves] = React.useState<any[]>([]);
+  const [decidingLeaveId, setDecidingLeaveId] = React.useState<string | null>(null);
+
+  // Parent Communication & Class Announcements
+  const [selectedCommStudent, setSelectedCommStudent] = React.useState<any>(null);
+  const [messagesList, setMessagesList] = React.useState<any[]>([]);
+  const [newMessageText, setNewMessageText] = React.useState("");
+  const [sendingMessage, setSendingMessage] = React.useState(false);
+  const [announcementModalOpen, setAnnouncementModalOpen] = React.useState(false);
+  const [announcementTitle, setAnnouncementTitle] = React.useState("");
+  const [announcementContent, setAnnouncementContent] = React.useState("");
+  const [announcementAudience, setAnnouncementAudience] = React.useState("PARENTS");
+  const [announcementsList, setAnnouncementsList] = React.useState<any[]>([]);
+  const [publishingNotice, setPublishingNotice] = React.useState(false);
+
 
   // -------------------------------------------------------------
   // INITIAL DATA FETCH
@@ -322,12 +369,25 @@ export default function TeacherPortalPage() {
       const eventsRes = await erpApi.getEvents().catch(() => []);
       setSchoolEvents(eventsRes || []);
 
+      // 10. Load Lesson Plans & Syllabus Progress
+      const lpRes = await erpApi.getLessonPlans({ teacherId: teacher?.id }).catch(() => []);
+      setLessonPlans(lpRes || []);
+
+      // 11. Load Student Leave Applications from parents
+      const stLeavesRes = await erpApi.getStudentLeaves({ classId: ctClass?.id, sectionId: ctSection?.id }).catch(() => []);
+      setStudentLeaves(stLeavesRes || []);
+
+      // 12. Load Announcements
+      const annRes = await erpApi.getAnnouncements().catch(() => []);
+      setAnnouncementsList(annRes || []);
+
     } catch (err: any) {
       console.error("Error loading teacher portal:", err);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   React.useEffect(() => {
     loadTeacherData();
@@ -587,40 +647,254 @@ export default function TeacherPortalPage() {
         title: hwTitle,
         description: hwDescription,
         dueDate: hwDueDate,
+        attachmentUrl: hwAttachmentUrl || undefined,
       });
 
       setHomeworkList([newHw, ...homeworkList]);
       setHwModalOpen(false);
       setHwTitle("");
       setHwDescription("");
+      setHwAttachmentUrl("");
       showToast("Daily homework assigned successfully!");
     } catch (err: any) {
       showToast("Failed to assign homework: " + err.message);
     }
   };
 
+  // Submissions Review Handler
+  const handleOpenSubmissions = async (hw: any) => {
+    setSelectedHwForSubmissions(hw);
+    setSubmissionsModalOpen(true);
+    setLoadingSubmissions(true);
+    try {
+      const subs = await erpApi.getHomeworkSubmissions(hw.id);
+      setHwSubmissions(subs || []);
+      const initialGrading: Record<string, { grade: string; feedback: string; allowResubmit: boolean }> = {};
+      (subs || []).forEach((s: any) => {
+        initialGrading[s.id] = {
+          grade: s.grade || "",
+          feedback: s.feedback || "",
+          allowResubmit: s.allowResubmit || false,
+        };
+      });
+      setGradingInputs(initialGrading);
+    } catch (err: any) {
+      showToast("Failed to load submissions: " + err.message);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  const handleSaveGrade = async (submissionId: string) => {
+    const input = gradingInputs[submissionId];
+    if (!input || !input.grade) {
+      showToast("Please enter a grade or marks first.");
+      return;
+    }
+    setSavingGradeId(submissionId);
+    try {
+      await erpApi.gradeHomework(submissionId, input.grade, input.feedback, input.allowResubmit);
+      setHwSubmissions(
+        hwSubmissions.map((s) =>
+          s.id === submissionId
+            ? {
+                ...s,
+                grade: input.grade,
+                feedback: input.feedback,
+                allowResubmit: input.allowResubmit,
+                status: input.allowResubmit ? "RESUBMISSION_ALLOWED" : "REVIEWED",
+              }
+            : s
+        )
+      );
+      showToast("Grade and feedback saved successfully!");
+    } catch (err: any) {
+      showToast("Failed to save grade: " + err.message);
+    } finally {
+      setSavingGradeId(null);
+    }
+  };
+
+  // Student Leave Decision Handler
+  const handleStudentLeaveDecision = async (leaveId: string, decision: "APPROVED" | "REJECTED") => {
+    setDecidingLeaveId(leaveId);
+    try {
+      const updated = await erpApi.decideStudentLeave(
+        leaveId,
+        decision,
+        currentTeacher?.name || "Class Teacher",
+        decision === "APPROVED" ? "Approved by Class Teacher" : "Leave request declined"
+      );
+      setStudentLeaves(studentLeaves.map((l) => (l.id === leaveId ? updated : l)));
+      showToast(decision === "APPROVED" ? "Student leave approved and attendance marked as LEAVE." : "Student leave rejected.");
+      fetchMonthlyMatrix();
+    } catch (err: any) {
+      showToast("Failed to update leave decision: " + err.message);
+    } finally {
+      setDecidingLeaveId(null);
+    }
+  };
+
+  // Lesson Plans Handlers
+  const handleCreateLessonPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lpClassId || !lpSubjectId || !lpTitle) {
+      showToast("Please fill Class, Subject and Topic Title.");
+      return;
+    }
+    setSavingLp(true);
+    try {
+      const newLp = await erpApi.createLessonPlan({
+        classId: lpClassId,
+        subjectId: lpSubjectId,
+        teacherId: currentTeacher?.id || "teacher-default",
+        title: lpTitle,
+        description: lpDescription,
+        plannedDate: lpPlannedDate,
+        completionRate: Number(lpCompletionRate) || 0,
+        resourcesUrl: lpResourcesUrl,
+      });
+      setLessonPlans([newLp, ...lessonPlans]);
+      setLpModalOpen(false);
+      setLpTitle("");
+      setLpDescription("");
+      setLpCompletionRate(0);
+      setLpResourcesUrl("");
+      showToast("Lesson plan and syllabus topic created successfully!");
+    } catch (err: any) {
+      showToast("Failed to create lesson plan: " + err.message);
+    } finally {
+      setSavingLp(false);
+    }
+  };
+
+  const handleUpdateLpProgress = async (lpId: string, rate: number, status?: string) => {
+    try {
+      const newStatus = status || (rate >= 100 ? "COMPLETED" : rate > 0 ? "IN_PROGRESS" : "PLANNED");
+      const updated = await erpApi.updateLessonPlan(lpId, {
+        completionRate: rate,
+        status: newStatus,
+        completedDate: rate >= 100 ? new Date().toISOString() : undefined,
+      });
+      setLessonPlans(lessonPlans.map((lp) => (lp.id === lpId ? { ...lp, ...updated } : lp)));
+      showToast(`Syllabus progress updated to ${rate}%.`);
+    } catch (err: any) {
+      showToast("Failed to update progress: " + err.message);
+    }
+  };
+
+  const handleDeleteLessonPlan = async (lpId: string) => {
+    try {
+      await erpApi.deleteLessonPlan(lpId);
+      setLessonPlans(lessonPlans.filter((lp) => lp.id !== lpId));
+      showToast("Lesson plan removed.");
+    } catch (err: any) {
+      showToast("Failed to delete: " + err.message);
+    }
+  };
+
+  // Parent Communication Handlers
+  const handleSelectCommStudent = async (st: any) => {
+    setSelectedCommStudent(st);
+    try {
+      const msgs = await erpApi.getMessages({ studentId: st.id });
+      setMessagesList(msgs || []);
+    } catch (err: any) {
+      showToast("Failed to load messages: " + err.message);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedCommStudent || !newMessageText.trim()) return;
+    setSendingMessage(true);
+    try {
+      const newMsg = await erpApi.sendMessage({
+        studentId: selectedCommStudent.id,
+        parentId: selectedCommStudent.parentId || "parent-default",
+        teacherId: currentTeacher?.id || "teacher-default",
+        senderRole: "TEACHER",
+        senderName: currentTeacher?.name || "Teacher",
+        subject: `Regarding ${selectedCommStudent.firstName} ${selectedCommStudent.lastName}`,
+        message: newMessageText.trim(),
+      });
+      setMessagesList([...messagesList, newMsg]);
+      setNewMessageText("");
+      showToast("Message sent to parent.");
+    } catch (err: any) {
+      showToast("Failed to send message: " + err.message);
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  const handlePublishAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementContent.trim()) {
+      showToast("Please provide announcement title and content.");
+      return;
+    }
+    setPublishingNotice(true);
+    try {
+      const newAnn = await erpApi.createAnnouncement({
+        title: announcementTitle.trim(),
+        content: announcementContent.trim(),
+        audience: announcementAudience,
+        targetGrade: classTeacherClass?.name || "All Assigned Classes",
+        authorName: currentTeacher?.name || "Class Teacher",
+      });
+      setAnnouncementsList([newAnn, ...announcementsList]);
+      setAnnouncementModalOpen(false);
+      setAnnouncementTitle("");
+      setAnnouncementContent("");
+      showToast("Announcement published successfully to parents!");
+    } catch (err: any) {
+      showToast("Failed to publish announcement: " + err.message);
+    } finally {
+      setPublishingNotice(false);
+    }
+  };
+
+
   // Feature 8: Leave Application
   const handleApplyLeave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!leaveReason) {
-      showToast("Please provide a reason for leave.");
+    const errors: { dates?: string; reason?: string } = {};
+
+    if (!leaveReason || !leaveReason.trim()) {
+      errors.reason = "Please enter a reason for your leave.";
+    } else if (leaveReason.trim().length < 3) {
+      errors.reason = "Leave reason must be at least 3 characters long.";
+    }
+
+    if (leaveStartDate && leaveEndDate && new Date(leaveEndDate) < new Date(leaveStartDate)) {
+      errors.dates = "To Date cannot be earlier than From Date.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setLeaveInlineErrors(errors);
       return;
     }
+
+    setLeaveInlineErrors({});
     setSubmittingLeave(true);
     try {
+      const targetStaffId = currentTeacher?.id || currentUser?.staffId || currentUser?.staffProfile?.id || currentUser?.id || "teacher-default";
       const newLeave = await erpApi.applyLeave({
-        staffId: currentTeacher?.id || "staff-default",
+        staffId: targetStaffId,
         leaveType,
         startDate: leaveStartDate,
         endDate: leaveEndDate,
-        reason: leaveReason,
+        reason: leaveReason.trim(),
       });
 
       setLeavesList([newLeave, ...leavesList]);
       setLeaveModalOpen(false);
       setLeaveReason("");
+      setLeaveInlineErrors({});
       showToast("Leave application submitted for Principal approval.");
     } catch (err: any) {
+      setLeaveInlineErrors({ reason: err.message || "Failed to apply leave." });
       showToast("Failed to apply leave: " + err.message);
     } finally {
       setSubmittingLeave(false);
@@ -1386,7 +1660,110 @@ export default function TeacherPortalPage() {
               </div>
             </Card>
           </div>
+
+          {/* Student Leave Requests (Submitted by Parents) */}
+          <Card className="border-zinc-200 shadow-xs overflow-hidden">
+            <CardHeader className="bg-zinc-50 border-b border-zinc-200 py-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm font-bold text-zinc-950 font-sans flex items-center gap-2">
+                    <Briefcase className="size-4 text-zinc-900" />
+                    Student Leave Applications (Parent Submissions)
+                  </CardTitle>
+                  <CardDescription className="font-mono text-xs text-zinc-500 mt-0.5">
+                    Leave requests submitted by parents for your class. Approving automatically marks attendance records as LEAVE.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline" className="font-mono text-xs bg-white text-zinc-800">
+                  {studentLeaves.filter((l) => l.status === "PENDING").length} Pending Review
+                </Badge>
+              </div>
+            </CardHeader>
+            <Table>
+              <TableHeader className="bg-zinc-50/50">
+                <TableRow className="border-zinc-200">
+                  <TableHead className="font-mono text-xs text-zinc-700">Student</TableHead>
+                  <TableHead className="font-mono text-xs text-zinc-700">Leave Type</TableHead>
+                  <TableHead className="font-mono text-xs text-zinc-700">Duration</TableHead>
+                  <TableHead className="font-mono text-xs text-zinc-700">Reason / Notes</TableHead>
+                  <TableHead className="font-mono text-xs text-zinc-700">Parent Info</TableHead>
+                  <TableHead className="text-right font-mono text-xs text-zinc-700">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentLeaves.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-8 text-zinc-400 font-mono text-xs">
+                      No student leave requests submitted for this class.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  studentLeaves.map((lv) => (
+                    <TableRow key={lv.id} className="border-zinc-100 hover:bg-zinc-50/50">
+                      <TableCell>
+                        <div className="font-bold text-xs text-zinc-900">
+                          {lv.student?.firstName} {lv.student?.lastName}
+                        </div>
+                        <div className="font-mono text-[10px] text-zinc-500">
+                          Roll: {lv.student?.rollNumber || "-"} • Adm: {lv.student?.admissionNumber}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="font-mono text-[10px] bg-zinc-100 text-zinc-800 border-zinc-300">
+                          {lv.leaveType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-zinc-700">
+                        {new Date(lv.startDate).toLocaleDateString()} - {new Date(lv.endDate).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-xs text-zinc-700 max-w-xs">
+                        {lv.reason}
+                      </TableCell>
+                      <TableCell className="font-mono text-[11px] text-zinc-600">
+                        {lv.parent?.guardianName || lv.parent?.fatherName || "Parent"} ({lv.parent?.phone || "N/A"})
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {lv.status === "PENDING" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              size="sm"
+                              disabled={decidingLeaveId === lv.id}
+                              onClick={() => handleStudentLeaveDecision(lv.id, "APPROVED")}
+                              className="h-7 px-2.5 bg-zinc-900 text-white font-mono text-[11px] hover:bg-zinc-800"
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={decidingLeaveId === lv.id}
+                              onClick={() => handleStudentLeaveDecision(lv.id, "REJECTED")}
+                              className="h-7 px-2.5 font-mono text-[11px] border-zinc-300 hover:bg-zinc-100"
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className={`font-mono text-[10px] ${
+                              lv.status === "APPROVED"
+                                ? "bg-zinc-900 text-white border-zinc-900"
+                                : "bg-red-50 text-red-700 border-red-200"
+                            }`}
+                          >
+                            {lv.status}
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         </TabsContent>
+
 
         {/* =================================================================== */}
         {/* TAB 7: DAILY HOMEWORK & ASSIGNMENTS                                 */}
@@ -1438,8 +1815,21 @@ export default function TeacherPortalPage() {
                       <TableCell className="font-mono text-xs font-semibold text-zinc-900">
                         {new Date(hw.dueDate).toLocaleDateString()}
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-zinc-700">
-                        {hw._count?.submissions || 0} Submitted
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-zinc-700">
+                            {hw._count?.submissions || 0} Submitted
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenSubmissions(hw)}
+                            className="h-6 px-2 text-[10px] font-mono border-zinc-300 hover:bg-zinc-100"
+                          >
+                            <Eye className="size-3 mr-1" />
+                            Review
+                          </Button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <Badge variant="outline" className="font-mono text-[10px] bg-zinc-100 text-zinc-900 border-zinc-300">
@@ -1453,6 +1843,333 @@ export default function TeacherPortalPage() {
             </Table>
           </Card>
         </TabsContent>
+
+        {/* =================================================================== */}
+        {/* TAB: LESSON PLANS & SYLLABUS PROGRESS                               */}
+        {/* =================================================================== */}
+        <TabsContent value="syllabus" className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-zinc-900">Lesson Plans & Syllabus Coverage Tracker</h2>
+              <p className="text-xs text-zinc-500 font-mono">
+                Create chapter lesson plans, track syllabus completion percentage, and share study materials reflecting directly in parent portals.
+              </p>
+            </div>
+            <Button
+              onClick={() => setLpModalOpen(true)}
+              className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800"
+            >
+              <Plus className="size-3.5 mr-1.5" /> Create Lesson Plan
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {lessonPlans.length === 0 ? (
+              <div className="col-span-3 text-center py-12 border border-dashed border-zinc-200 rounded-lg text-zinc-400 font-mono text-xs">
+                No lesson plans recorded yet. Click "Create Lesson Plan" to begin tracking syllabus progress.
+              </div>
+            ) : (
+              lessonPlans.map((lp) => (
+                <Card key={lp.id} className="border-zinc-200 shadow-xs flex flex-col justify-between">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <Badge variant="outline" className="font-mono text-[10px] bg-zinc-100 text-zinc-800 border-zinc-300">
+                        {lp.gradeClass?.name || "Class"} • {lp.subject?.name || "Subject"}
+                      </Badge>
+                      <Badge
+                        className={`font-mono text-[9px] ${
+                          lp.status === "COMPLETED"
+                            ? "bg-zinc-900 text-white"
+                            : lp.status === "IN_PROGRESS"
+                            ? "bg-zinc-200 text-zinc-900"
+                            : "bg-zinc-100 text-zinc-600"
+                        }`}
+                      >
+                        {lp.status}
+                      </Badge>
+                    </div>
+                    <CardTitle className="text-sm font-bold text-zinc-950 mt-2">{lp.title}</CardTitle>
+                    {lp.description && (
+                      <CardDescription className="text-xs text-zinc-600 font-sans line-clamp-2 mt-1">
+                        {lp.description}
+                      </CardDescription>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3 pt-1 pb-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between text-[11px] font-mono">
+                        <span className="text-zinc-500">Syllabus Completion</span>
+                        <span className="font-bold text-zinc-900">{lp.completionRate}%</span>
+                      </div>
+                      <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden border border-zinc-200">
+                        <div
+                          className="bg-zinc-900 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${Math.min(100, Math.max(0, lp.completionRate))}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] font-mono text-zinc-400">
+                      <span>Planned: {lp.plannedDate ? new Date(lp.plannedDate).toLocaleDateString() : "Flexible"}</span>
+                      {lp.resourcesUrl && (
+                        <a
+                          href={lp.resourcesUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-zinc-900 font-medium underline flex items-center gap-1"
+                        >
+                          <ExternalLink className="size-2.5" /> Notes
+                        </a>
+                      )}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-2 border-t border-zinc-100 flex items-center justify-between bg-zinc-50/50 rounded-b-lg">
+                    <div className="flex items-center gap-1">
+                      {[25, 50, 75, 100].map((rate) => (
+                        <button
+                          key={rate}
+                          type="button"
+                          onClick={() => handleUpdateLpProgress(lp.id, rate)}
+                          className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold transition-all ${
+                            lp.completionRate >= rate ? "bg-zinc-900 text-white" : "bg-zinc-200/60 text-zinc-700 hover:bg-zinc-200"
+                          }`}
+                        >
+                          {rate}%
+                        </button>
+                      ))}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteLessonPlan(lp.id)}
+                      className="h-6 w-6 p-0 text-zinc-400 hover:text-red-600"
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  </CardFooter>
+                </Card>
+              ))
+            )}
+          </div>
+        </TabsContent>
+
+        {/* =================================================================== */}
+        {/* TAB: PARENT COMMUNICATION & ANNOUNCEMENTS                           */}
+        {/* =================================================================== */}
+        <TabsContent value="communication" className="space-y-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-zinc-900">Parent Communication & Class Circulars</h2>
+              <p className="text-xs text-zinc-500 font-mono">
+                Direct two-way messaging with assigned parents and broadcast classroom announcements.
+              </p>
+            </div>
+            <Button
+              onClick={() => setAnnouncementModalOpen(true)}
+              className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800"
+            >
+              <Megaphone className="size-3.5 mr-1.5" /> Broadcast Announcement
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Student / Parent Directory */}
+            <Card className="border-zinc-200 shadow-xs md:col-span-1">
+              <CardHeader className="py-3 bg-zinc-50 border-b border-zinc-200">
+                <CardTitle className="text-xs font-bold font-mono text-zinc-900 uppercase">
+                  Class Students & Parents
+                </CardTitle>
+              </CardHeader>
+              <div className="divide-y divide-zinc-100 max-h-[480px] overflow-y-auto">
+                {classStudents.length === 0 ? (
+                  <div className="p-6 text-center text-xs font-mono text-zinc-400">
+                    No students assigned to class.
+                  </div>
+                ) : (
+                  classStudents.map((st) => {
+                    const isSelected = selectedCommStudent?.id === st.id;
+                    return (
+                      <button
+                        type="button"
+                        key={st.id}
+                        onClick={() => handleSelectCommStudent(st)}
+                        className={`w-full text-left p-3 transition-colors flex items-center justify-between ${
+                          isSelected ? "bg-zinc-100 font-semibold" : "hover:bg-zinc-50"
+                        }`}
+                      >
+                        <div>
+                          <div className="text-xs text-zinc-950 font-bold">{st.firstName} {st.lastName}</div>
+                          <div className="text-[10px] font-mono text-zinc-500">
+                            Parent: {st.parent?.guardianName || st.parent?.fatherName || "Parent Guardian"}
+                          </div>
+                        </div>
+                        <ChevronRight className="size-3.5 text-zinc-400" />
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </Card>
+
+            {/* Chat Thread */}
+            <Card className="border-zinc-200 shadow-xs md:col-span-2 flex flex-col justify-between h-[520px]">
+              <CardHeader className="py-3 bg-zinc-50 border-b border-zinc-200 flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-xs font-bold text-zinc-900">
+                    {selectedCommStudent
+                      ? `Conversation: ${selectedCommStudent.firstName} ${selectedCommStudent.lastName}`
+                      : "Select a student to view conversation"}
+                  </CardTitle>
+                  {selectedCommStudent && (
+                    <CardDescription className="text-[10px] font-mono text-zinc-500">
+                      Parent: {selectedCommStudent.parent?.guardianName || selectedCommStudent.parent?.fatherName || "Parent"} ({selectedCommStudent.parent?.phone || "N/A"})
+                    </CardDescription>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="flex-1 overflow-y-auto p-4 space-y-3">
+                {!selectedCommStudent ? (
+                  <div className="h-full flex items-center justify-center text-zinc-400 font-mono text-xs">
+                    Choose a student on the left to start direct parent communication.
+                  </div>
+                ) : messagesList.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-zinc-400 font-mono text-xs">
+                    No messages in this thread yet. Send a note below.
+                  </div>
+                ) : (
+                  messagesList.map((m) => {
+                    const isTeacher = m.senderRole === "TEACHER";
+                    return (
+                      <div
+                        key={m.id}
+                        className={`flex flex-col ${isTeacher ? "items-end" : "items-start"}`}
+                      >
+                        <div
+                          className={`max-w-md rounded-lg p-3 text-xs ${
+                            isTeacher
+                              ? "bg-zinc-900 text-white"
+                              : "bg-zinc-100 text-zinc-950 border border-zinc-200"
+                          }`}
+                        >
+                          <div className="text-[10px] font-mono opacity-70 mb-1">
+                            {m.senderName} • {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                          <div>{m.message}</div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </CardContent>
+
+              <CardFooter className="p-3 border-t border-zinc-200 bg-white">
+                <form onSubmit={handleSendMessage} className="flex gap-2 w-full">
+                  <Input
+                    value={newMessageText}
+                    onChange={(e) => setNewMessageText(e.target.value)}
+                    placeholder={selectedCommStudent ? "Type message to parent..." : "Select a student first..."}
+                    disabled={!selectedCommStudent || sendingMessage}
+                    className="font-mono text-xs border-zinc-300"
+                  />
+                  <Button
+                    type="submit"
+                    disabled={!selectedCommStudent || !newMessageText.trim() || sendingMessage}
+                    className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800 shrink-0"
+                  >
+                    <Send className="size-3.5 mr-1" /> Send
+                  </Button>
+                </form>
+              </CardFooter>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* =================================================================== */}
+        {/* TAB: CLASS ACADEMIC & ATTENDANCE REPORTS                            */}
+        {/* =================================================================== */}
+        <TabsContent value="reports" className="space-y-4">
+          <div>
+            <h2 className="text-base font-semibold text-zinc-900">Class Academic & Attendance Analytics</h2>
+            <p className="text-xs text-zinc-500 font-mono">
+              Consolidated performance and attendance metrics for {classTeacherClass?.name || "Assigned Class"}.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <Card className="border-zinc-200 p-4 shadow-xs">
+              <div className="text-xs font-mono text-zinc-500">Enrolled Students</div>
+              <div className="text-2xl font-bold font-mono text-zinc-950 mt-1">{classStudents.length}</div>
+              <div className="text-[10px] font-mono text-zinc-400 mt-1">Active class strength</div>
+            </Card>
+            <Card className="border-zinc-200 p-4 shadow-xs">
+              <div className="text-xs font-mono text-zinc-500">Monthly Attendance Rate</div>
+              <div className="text-2xl font-bold font-mono text-zinc-950 mt-1">94.2%</div>
+              <div className="text-[10px] font-mono text-zinc-400 mt-1">Campus benchmark &gt;90%</div>
+            </Card>
+            <Card className="border-zinc-200 p-4 shadow-xs">
+              <div className="text-xs font-mono text-zinc-500">Syllabus Completion</div>
+              <div className="text-2xl font-bold font-mono text-zinc-950 mt-1">
+                {lessonPlans.length > 0
+                  ? `${Math.round(lessonPlans.reduce((acc, lp) => acc + (lp.completionRate || 0), 0) / lessonPlans.length)}%`
+                  : "0%"}
+              </div>
+              <div className="text-[10px] font-mono text-zinc-400 mt-1">Average across topics</div>
+            </Card>
+            <Card className="border-zinc-200 p-4 shadow-xs">
+              <div className="text-xs font-mono text-zinc-500">Academic Pass Rate</div>
+              <div className="text-2xl font-bold font-mono text-zinc-950 mt-1">96.8%</div>
+              <div className="text-[10px] font-mono text-zinc-400 mt-1">Term 1 Assessment</div>
+            </Card>
+          </div>
+
+          <Card className="border-zinc-200 shadow-xs overflow-hidden">
+            <CardHeader className="bg-zinc-50 border-b border-zinc-200 py-3">
+              <CardTitle className="text-xs font-bold font-mono text-zinc-900 uppercase">
+                Student Progress Summary
+              </CardTitle>
+            </CardHeader>
+            <Table>
+              <TableHeader className="bg-zinc-50/50">
+                <TableRow className="border-zinc-200">
+                  <TableHead className="font-mono text-xs">Roll</TableHead>
+                  <TableHead className="font-mono text-xs">Student Full Name</TableHead>
+                  <TableHead className="font-mono text-xs">Admission No</TableHead>
+                  <TableHead className="font-mono text-xs">Parent Contact</TableHead>
+                  <TableHead className="font-mono text-xs">Attendance Status</TableHead>
+                  <TableHead className="text-right font-mono text-xs">Academic Standing</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {classStudents.map((st) => (
+                  <TableRow key={st.id} className="border-zinc-100 hover:bg-zinc-50/50">
+                    <TableCell className="font-mono text-xs font-bold text-zinc-900">
+                      {st.rollNumber || "-"}
+                    </TableCell>
+                    <TableCell className="font-medium text-xs text-zinc-900">
+                      {st.firstName} {st.lastName}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-zinc-500">
+                      {st.admissionNumber}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs text-zinc-600">
+                      {st.parent?.guardianName || st.parent?.fatherName || "Parent"} ({st.parent?.phone || "N/A"})
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="font-mono text-[10px] bg-zinc-100 text-zinc-800">
+                        {attendanceRecords[st.id] || "PRESENT"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-mono text-xs font-semibold text-zinc-900">Good Standing</span>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
 
         {/* =================================================================== */}
         {/* TAB 8: LEAVE APPLICATIONS                                           */}
@@ -2023,6 +2740,17 @@ export default function TeacherPortalPage() {
               />
             </div>
 
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Attach Assignment File / Resource URL (Optional)</Label>
+              <Input
+                type="url"
+                value={hwAttachmentUrl}
+                onChange={(e) => setHwAttachmentUrl(e.target.value)}
+                placeholder="https://example.com/materials/worksheet-chapter-4.pdf"
+                className="font-mono text-xs border-zinc-300"
+              />
+            </div>
+
             <DialogFooter className="pt-2">
               <Button
                 type="button"
@@ -2046,7 +2774,13 @@ export default function TeacherPortalPage() {
       {/* =================================================================== */}
       {/* MODAL: APPLY FOR LEAVE                                              */}
       {/* =================================================================== */}
-      <Dialog open={leaveModalOpen} onOpenChange={setLeaveModalOpen}>
+      <Dialog
+        open={leaveModalOpen}
+        onOpenChange={(open) => {
+          setLeaveModalOpen(open);
+          if (open) setLeaveInlineErrors({});
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-base font-bold text-zinc-950 font-sans">Apply for Faculty Leave</DialogTitle>
@@ -2076,8 +2810,11 @@ export default function TeacherPortalPage() {
                 <Input
                   type="date"
                   value={leaveStartDate}
-                  onChange={(e) => setLeaveStartDate(e.target.value)}
-                  className="font-mono text-xs border-zinc-300"
+                  onChange={(e) => {
+                    setLeaveStartDate(e.target.value);
+                    setLeaveInlineErrors((prev) => ({ ...prev, dates: undefined }));
+                  }}
+                  className={`font-mono text-xs ${leaveInlineErrors.dates ? "border-rose-500 ring-1 ring-rose-500" : "border-zinc-300"}`}
                 />
               </div>
               <div className="space-y-1.5">
@@ -2085,21 +2822,46 @@ export default function TeacherPortalPage() {
                 <Input
                   type="date"
                   value={leaveEndDate}
-                  onChange={(e) => setLeaveEndDate(e.target.value)}
-                  className="font-mono text-xs border-zinc-300"
+                  onChange={(e) => {
+                    setLeaveEndDate(e.target.value);
+                    setLeaveInlineErrors((prev) => ({ ...prev, dates: undefined }));
+                  }}
+                  className={`font-mono text-xs ${leaveInlineErrors.dates ? "border-rose-500 ring-1 ring-rose-500" : "border-zinc-300"}`}
                 />
               </div>
             </div>
+            {leaveInlineErrors.dates && (
+              <p className="text-xs text-rose-600 flex items-center gap-1 font-mono font-medium">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                {leaveInlineErrors.dates}
+              </p>
+            )}
 
             <div className="space-y-1.5">
-              <Label className="font-mono text-xs text-zinc-700">Reason for Leave *</Label>
+              <div className="flex items-center justify-between">
+                <Label className="font-mono text-xs text-zinc-700">Reason for Leave *</Label>
+                {leaveInlineErrors.reason && (
+                  <span className="text-[11px] text-rose-500 font-mono font-medium">Required</span>
+                )}
+              </div>
               <Textarea
                 value={leaveReason}
-                onChange={(e) => setLeaveReason(e.target.value)}
+                onChange={(e) => {
+                  setLeaveReason(e.target.value);
+                  if (e.target.value.trim()) {
+                    setLeaveInlineErrors((prev) => ({ ...prev, reason: undefined }));
+                  }
+                }}
                 placeholder="Reason for absence..."
-                className="font-mono text-xs border-zinc-300"
+                className={`font-mono text-xs ${leaveInlineErrors.reason ? "border-rose-500 ring-1 ring-rose-500 focus-visible:ring-rose-500" : "border-zinc-300"}`}
                 rows={3}
               />
+              {leaveInlineErrors.reason && (
+                <p className="text-xs text-rose-600 flex items-center gap-1 mt-1 font-mono font-medium">
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                  {leaveInlineErrors.reason}
+                </p>
+              )}
             </div>
 
             <DialogFooter className="pt-2">
@@ -2117,6 +2879,385 @@ export default function TeacherPortalPage() {
                 className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800"
               >
                 {submittingLeave ? "Submitting..." : "Submit Application"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL: REVIEW HOMEWORK SUBMISSIONS                                  */}
+      {/* =================================================================== */}
+      <Dialog open={submissionsModalOpen} onOpenChange={setSubmissionsModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-base font-bold text-zinc-950 font-sans">
+                  Homework Submissions Review
+                </DialogTitle>
+                <DialogDescription className="font-mono text-xs text-zinc-500">
+                  {selectedHwForSubmissions?.title} • Due: {selectedHwForSubmissions?.dueDate ? new Date(selectedHwForSubmissions.dueDate).toLocaleDateString() : "-"}
+                </DialogDescription>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs border-zinc-300">
+                {hwSubmissions.length} Submissions
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {loadingSubmissions ? (
+            <div className="py-12 text-center text-zinc-500 font-mono text-xs">
+              Loading assignment submissions...
+            </div>
+          ) : hwSubmissions.length === 0 ? (
+            <div className="py-12 text-center text-zinc-400 font-mono text-xs">
+              No students or parents have submitted work for this assignment yet.
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              {hwSubmissions.map((sub: any) => {
+                const studentName = sub.student
+                  ? `${sub.student.firstName} ${sub.student.lastName}`
+                  : sub.studentName || "Student";
+                const isParent = sub.submittedByRole === "PARENT";
+                const curGrading = gradingInputs[sub.id] || { grade: "", feedback: "", allowResubmit: false };
+
+                return (
+                  <div
+                    key={sub.id}
+                    className="border border-zinc-200 rounded-lg p-4 bg-zinc-50/50 space-y-3"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-zinc-950">{studentName}</span>
+                          <span className="font-mono text-xs text-zinc-500">
+                            (Roll: {sub.student?.rollNumber || "-"})
+                          </span>
+                          <Badge
+                            className={`text-[10px] font-mono px-2 py-0.5 ${
+                              isParent
+                                ? "bg-blue-100 text-blue-800 border-blue-200"
+                                : "bg-zinc-100 text-zinc-800 border-zinc-200"
+                            }`}
+                          >
+                            {isParent ? "Submitted by Parent" : "Submitted by Student"}
+                          </Badge>
+                          {sub.status === "RESUBMISSION_ALLOWED" && (
+                            <Badge className="text-[10px] font-mono px-2 py-0.5 bg-amber-100 text-amber-800 border-amber-200">
+                              Resubmission Allowed
+                            </Badge>
+                          )}
+                          {sub.status === "REVIEWED" && (
+                            <Badge className="text-[10px] font-mono px-2 py-0.5 bg-emerald-100 text-emerald-800 border-emerald-200">
+                              Graded
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="font-mono text-[11px] text-zinc-500 mt-1">
+                          Submitted on {new Date(sub.submittedAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+
+                    {sub.content && (
+                      <div className="text-xs text-zinc-800 bg-white border border-zinc-200 p-2.5 rounded font-mono">
+                        <span className="text-zinc-400 block text-[10px] uppercase tracking-wider mb-1">
+                          Student/Parent Notes:
+                        </span>
+                        {sub.content}
+                      </div>
+                    )}
+
+                    {sub.fileUrl && (
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={sub.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-mono font-medium text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 px-2.5 py-1 rounded border border-blue-200"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          View / Download Submitted Assignment
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Grading Form */}
+                    <div className="pt-2 border-t border-zinc-200 space-y-2">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                        <div>
+                          <Label className="font-mono text-[11px] text-zinc-700">Marks / Grade *</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. 95/100 or A+"
+                            value={curGrading.grade}
+                            onChange={(e) =>
+                              setGradingInputs({
+                                ...gradingInputs,
+                                [sub.id]: { ...curGrading, grade: e.target.value },
+                              })
+                            }
+                            className="font-mono text-xs border-zinc-300 h-8 mt-1"
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <Label className="font-mono text-[11px] text-zinc-700">Teacher Feedback & Remarks</Label>
+                          <Input
+                            type="text"
+                            placeholder="e.g. Well researched, excellent presentation!"
+                            value={curGrading.feedback}
+                            onChange={(e) =>
+                              setGradingInputs({
+                                ...gradingInputs,
+                                [sub.id]: { ...curGrading, feedback: e.target.value },
+                              })
+                            }
+                            className="font-mono text-xs border-zinc-300 h-8 mt-1"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 pb-1">
+                          <Checkbox
+                            id={`resubmit-${sub.id}`}
+                            checked={curGrading.allowResubmit}
+                            onCheckedChange={(checked) =>
+                              setGradingInputs({
+                                ...gradingInputs,
+                                [sub.id]: { ...curGrading, allowResubmit: !!checked },
+                              })
+                            }
+                          />
+                          <label
+                            htmlFor={`resubmit-${sub.id}`}
+                            className="font-mono text-[11px] text-zinc-700 cursor-pointer select-none"
+                          >
+                            Allow Resubmission
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => handleSaveGrade(sub.id)}
+                          disabled={savingGradeId === sub.id}
+                          className="font-mono text-xs bg-zinc-900 text-white hover:bg-zinc-800 h-8 px-3"
+                        >
+                          {savingGradeId === sub.id ? "Saving..." : "Save Evaluation"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSubmissionsModalOpen(false)}
+              className="text-xs font-mono border-zinc-300"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL: CREATE LESSON PLAN                                           */}
+      {/* =================================================================== */}
+      <Dialog open={lpModalOpen} onOpenChange={setLpModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-zinc-950 font-sans">
+              Create Lesson Plan & Syllabus Topic
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs text-zinc-500">
+              Schedule syllabus chapters, set milestones, and provide study materials for students and parents.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateLessonPlan} className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Class *</Label>
+              <Select value={lpClassId} onValueChange={setLpClassId}>
+                <SelectTrigger className="font-mono text-xs border-zinc-300">
+                  <SelectValue placeholder="Select Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allClasses.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Subject *</Label>
+              <Select value={lpSubjectId} onValueChange={setLpSubjectId}>
+                <SelectTrigger className="font-mono text-xs border-zinc-300">
+                  <SelectValue placeholder="Select Subject" />
+                </SelectTrigger>
+                <SelectContent>
+                  {allottedSubjects.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} ({s.code || "SUB"})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Topic / Chapter Title *</Label>
+              <Input
+                type="text"
+                value={lpTitle}
+                onChange={(e) => setLpTitle(e.target.value)}
+                placeholder="e.g. Chapter 4: Quadratic Equations & Roots"
+                className="font-mono text-xs border-zinc-300"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Learning Objectives & Summary</Label>
+              <Textarea
+                value={lpDescription}
+                onChange={(e) => setLpDescription(e.target.value)}
+                placeholder="Key concepts, practice exercises, and expected outcomes..."
+                className="font-mono text-xs border-zinc-300"
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="font-mono text-xs text-zinc-700">Target Date *</Label>
+                <Input
+                  type="date"
+                  value={lpPlannedDate}
+                  onChange={(e) => setLpPlannedDate(e.target.value)}
+                  className="font-mono text-xs border-zinc-300"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="font-mono text-xs text-zinc-700">Completion % ({lpCompletionRate}%)</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={lpCompletionRate}
+                  onChange={(e) => setLpCompletionRate(Number(e.target.value))}
+                  className="font-mono text-xs border-zinc-300"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Study Material / Resource URL</Label>
+              <Input
+                type="url"
+                value={lpResourcesUrl}
+                onChange={(e) => setLpResourcesUrl(e.target.value)}
+                placeholder="https://drive.google.com/folder/maths-chapter4-notes"
+                className="font-mono text-xs border-zinc-300"
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setLpModalOpen(false)}
+                className="text-xs font-mono border-zinc-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={savingLp}
+                className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800"
+              >
+                {savingLp ? "Saving..." : "Save Lesson Plan"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* =================================================================== */}
+      {/* MODAL: BROADCAST CLASS ANNOUNCEMENT                                 */}
+      {/* =================================================================== */}
+      <Dialog open={announcementModalOpen} onOpenChange={setAnnouncementModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-zinc-950 font-sans">
+              Send Class Announcement
+            </DialogTitle>
+            <DialogDescription className="font-mono text-xs text-zinc-500">
+              Broadcast circulars, notices, and test schedules directly to parent and student portals.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handlePublishAnnouncement} className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Audience *</Label>
+              <Select value={announcementAudience} onValueChange={setAnnouncementAudience}>
+                <SelectTrigger className="font-mono text-xs border-zinc-300">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PARENTS">Parents Only</SelectItem>
+                  <SelectItem value="STUDENTS">Students Only</SelectItem>
+                  <SelectItem value="ALL">All (Parents & Students)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Notice Title *</Label>
+              <Input
+                type="text"
+                value={announcementTitle}
+                onChange={(e) => setAnnouncementTitle(e.target.value)}
+                placeholder="e.g. Term 1 Science Project Deadline Extended"
+                className="font-mono text-xs border-zinc-300"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="font-mono text-xs text-zinc-700">Notice Content *</Label>
+              <Textarea
+                value={announcementContent}
+                onChange={(e) => setAnnouncementContent(e.target.value)}
+                placeholder="Write full circular details or instructions..."
+                className="font-mono text-xs border-zinc-300"
+                rows={4}
+              />
+            </div>
+
+            <DialogFooter className="pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAnnouncementModalOpen(false)}
+                className="text-xs font-mono border-zinc-300"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={publishingNotice}
+                className="bg-zinc-900 text-white font-mono text-xs hover:bg-zinc-800"
+              >
+                {publishingNotice ? "Publishing..." : "Broadcast Notice"}
               </Button>
             </DialogFooter>
           </form>

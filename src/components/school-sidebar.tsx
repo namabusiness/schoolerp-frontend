@@ -27,6 +27,8 @@ import {
   FileText,
   KeyRound,
   UserCheck,
+  MessageSquare,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -97,20 +99,50 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
   const TEACHER_TEACHING_MODULES = [
     { title: "Timetable & Classes", tab: "timetable", url: `${basePath}/teacher?tab=timetable`, icon: CalendarCheck },
     { title: "Allotted Subjects", tab: "subjects", url: `${basePath}/teacher?tab=subjects`, icon: BookOpen },
+    { title: "Lesson Plans & Syllabus", tab: "syllabus", url: `${basePath}/teacher?tab=syllabus`, icon: BookOpen },
     { title: "Question Papers & Exams", tab: "exams", url: `${basePath}/teacher?tab=exams`, icon: FileText },
     { title: "Homework & Assignments", tab: "homework", url: `${basePath}/teacher?tab=homework`, icon: Award },
   ];
 
   const TEACHER_CLASS_TEACHER_MODULES = [
     { title: "Class Students & Parents", tab: "roster", url: `${basePath}/teacher?tab=roster`, icon: Users },
-    { title: "Daily Attendance & Excel", tab: "attendance", url: `${basePath}/teacher?tab=attendance`, icon: FileCheck2 },
+    { title: "Daily Attendance & Leaves", tab: "attendance", url: `${basePath}/teacher?tab=attendance`, icon: FileCheck2 },
     { title: "Marks Enrollment", tab: "marks", url: `${basePath}/teacher?tab=marks`, icon: Award },
+    { title: "Parent Communication", tab: "communication", url: `${basePath}/teacher?tab=communication`, icon: MessageSquare },
+    { title: "Class Academic Reports", tab: "reports", url: `${basePath}/teacher?tab=reports`, icon: FileSpreadsheet },
   ];
 
   const TEACHER_FACULTY_MODULES = [
     { title: "Leave Applications", tab: "leaves", url: `${basePath}/teacher?tab=leaves`, icon: Briefcase },
     { title: "Academic Calendar", tab: "calendar", url: `${basePath}/teacher?tab=calendar`, icon: Calendar },
     { title: "Profile & Password Reset", tab: "profile", url: `${basePath}/teacher?tab=profile`, icon: Settings },
+  ];
+
+  // -------------------------------------------------------------
+  // PARENT PORTAL MODULES
+  // -------------------------------------------------------------
+  const PARENT_CHILD_MODULES = [
+    { title: "Child 360 & Profile", tab: "profile", url: `${basePath}/parent?tab=profile`, icon: Users },
+    { title: "Daily Attendance & Matrix", tab: "attendance", url: `${basePath}/parent?tab=attendance`, icon: FileCheck2 },
+    { title: "Class Timetable", tab: "timetable", url: `${basePath}/parent?tab=timetable`, icon: CalendarCheck },
+  ];
+
+  const PARENT_ACADEMIC_MODULES = [
+    { title: "Homework & Submissions", tab: "homework", url: `${basePath}/parent?tab=homework`, icon: Award },
+    { title: "Study Materials & Syllabus", tab: "syllabus", url: `${basePath}/parent?tab=syllabus`, icon: BookOpen },
+    { title: "Exams & Report Cards", tab: "exams", url: `${basePath}/parent?tab=exams`, icon: FileText },
+  ];
+
+  const PARENT_SERVICES_MODULES = [
+    { title: "Fee Invoices & Pay Online", tab: "fees", url: `${basePath}/parent?tab=fees`, icon: Receipt },
+    { title: "Apply Student Leave", tab: "leave", url: `${basePath}/parent?tab=leave`, icon: Briefcase },
+    { title: "Bus & Live Transport", tab: "transport", url: `${basePath}/parent?tab=transport`, icon: Bus },
+  ];
+
+  const PARENT_CONNECT_MODULES = [
+    { title: "Teacher Communication", tab: "messages", url: `${basePath}/parent?tab=messages`, icon: MessageSquare },
+    { title: "School Circulars & Notices", tab: "announcements", url: `${basePath}/parent?tab=announcements`, icon: Megaphone },
+    { title: "Documents & Certificates", tab: "vault", url: `${basePath}/parent?tab=vault`, icon: ShieldCheck },
   ];
 
   // -------------------------------------------------------------
@@ -156,12 +188,13 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
   ];
 
   const user = {
-    name: currentUser?.name || (activeRole === "TEACHER" ? "Faculty Member" : activeRole === "DRIVER" ? "Fleet Driver" : "School Administrator"),
-    email: currentUser?.email || (activeRole === "TEACHER" ? "faculty@greenwoodhigh.edu" : activeRole === "DRIVER" ? "driver@greenwoodhigh.edu" : "admin@greenwoodhigh.edu"),
+    name: currentUser?.name || (activeRole === "TEACHER" ? "Faculty Member" : activeRole === "PARENT" ? "Parent Guardian" : activeRole === "DRIVER" ? "Fleet Driver" : "School Administrator"),
+    email: currentUser?.email || (activeRole === "TEACHER" ? "faculty@greenwoodhigh.edu" : activeRole === "PARENT" ? "parent@greenwoodhigh.edu" : activeRole === "DRIVER" ? "driver@greenwoodhigh.edu" : "admin@greenwoodhigh.edu"),
     avatar: currentUser?.avatarUrl || "",
   };
 
   const isTeacher = activeRole === "TEACHER";
+  const isParent = activeRole === "PARENT";
   const isDriver = activeRole === "DRIVER";
 
   return (
@@ -170,7 +203,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="hover:bg-zinc-100">
-              <Link href={isTeacher ? `${basePath}/teacher` : isDriver ? `${basePath}/transport` : `${basePath}/dashboard`}>
+              <Link href={isTeacher ? `${basePath}/teacher` : isParent ? `${basePath}/parent` : isDriver ? `${basePath}/transport` : `${basePath}/dashboard`}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white font-bold text-xs uppercase">
                   {schoolSlug.substring(0, 2)}
                 </div>
@@ -179,7 +212,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
                     {schoolSlug.replace("-", " ")}
                   </span>
                   <span className="truncate text-[10px] text-zinc-500 font-mono">
-                    {isTeacher ? "Teacher Portal • Faculty" : isDriver ? "Driver Portal • Fleet" : "2026-2027 • Term 1"}
+                    {isTeacher ? "Teacher Portal • Faculty" : isParent ? "Parent Portal • Family Hub" : isDriver ? "Driver Portal • Fleet" : "2026-2027 • Term 1"}
                   </span>
                 </div>
               </Link>
@@ -288,6 +321,147 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
                   {TEACHER_FACULTY_MODULES.map((item) => {
                     const Icon = item.icon;
                     const isActive = pathname?.includes("/teacher") && currentTab === item.tab;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={
+                            isActive
+                              ? "bg-zinc-100 font-semibold text-zinc-950 border border-zinc-300 shadow-xs"
+                              : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
+                          }
+                        >
+                          <Link href={item.url}>
+                            <Icon className="size-4 shrink-0" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
+        ) : isParent ? (
+          /* ========================================================= */
+          /* PARENT EXCLUSIVE SIDEBAR (Linked Children Hub & Modules)  */
+          /* ========================================================= */
+          <>
+            {/* 1. Child & Attendance */}
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[10px] font-mono tracking-wider uppercase text-zinc-500">
+                Child & School Life
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {PARENT_CHILD_MODULES.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname?.includes("/parent") && currentTab === item.tab;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={
+                            isActive
+                              ? "bg-zinc-100 font-semibold text-zinc-950 border border-zinc-300 shadow-xs"
+                              : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
+                          }
+                        >
+                          <Link href={item.url}>
+                            <Icon className="size-4 shrink-0" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* 2. Academics & Learning */}
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[10px] font-mono tracking-wider uppercase text-zinc-500">
+                Academics & Performance
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {PARENT_ACADEMIC_MODULES.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname?.includes("/parent") && currentTab === item.tab;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={
+                            isActive
+                              ? "bg-zinc-100 font-semibold text-zinc-950 border border-zinc-300 shadow-xs"
+                              : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
+                          }
+                        >
+                          <Link href={item.url}>
+                            <Icon className="size-4 shrink-0" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* 3. Services & Payments */}
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[10px] font-mono tracking-wider uppercase text-zinc-500">
+                Services & Logistics
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {PARENT_SERVICES_MODULES.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname?.includes("/parent") && currentTab === item.tab;
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isActive}
+                          tooltip={item.title}
+                          className={
+                            isActive
+                              ? "bg-zinc-100 font-semibold text-zinc-950 border border-zinc-300 shadow-xs"
+                              : "text-zinc-600 hover:text-zinc-950 hover:bg-zinc-100/80"
+                          }
+                        >
+                          <Link href={item.url}>
+                            <Icon className="size-4 shrink-0" />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* 4. Connect & Vault */}
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-[10px] font-mono tracking-wider uppercase text-zinc-500">
+                Communication & Records
+              </SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {PARENT_CONNECT_MODULES.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = pathname?.includes("/parent") && currentTab === item.tab;
                     return (
                       <SidebarMenuItem key={item.title}>
                         <SidebarMenuButton

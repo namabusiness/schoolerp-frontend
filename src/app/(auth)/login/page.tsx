@@ -33,6 +33,7 @@ import { erpApi } from "@/lib/api";
 const SCHOOL_ROLES = [
   { id: "SCHOOL_ADMIN", label: "Admin", icon: Building2, defaultEmail: "admin@greenwoodhigh.edu", path: "/greenwood-high/dashboard" },
   { id: "TEACHER", label: "Teacher", icon: BookOpen, defaultEmail: "arvindh.nathan@greenwoodhigh.edu", path: "/greenwood-high/teacher" },
+  { id: "PARENT", label: "Parent", icon: Users, defaultEmail: "parent@greenwoodhigh.edu", path: "/greenwood-high/parent" },
   { id: "TRANSPORT_MANAGER", label: "Transport Manager", icon: Compass, defaultEmail: "transport@greenwoodhigh.edu", path: "/greenwood-high/transport" },
   { id: "DRIVER", label: "Driver", icon: Bus, defaultEmail: "driver@greenwoodhigh.edu", path: "/greenwood-high/transport" },
 ];
@@ -52,6 +53,8 @@ export default function LoginPage() {
         return "/super-admin";
       case "TEACHER":
         return "/greenwood-high/teacher";
+      case "PARENT":
+        return "/greenwood-high/parent";
       case "DRIVER":
       case "TRANSPORT_MANAGER":
         return "/greenwood-high/transport";
@@ -60,6 +63,7 @@ export default function LoginPage() {
         return "/greenwood-high/dashboard";
     }
   };
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
