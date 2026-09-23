@@ -1,16 +1,51 @@
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ||
-  (typeof window !== 'undefined' ? '/api' : 'https://backend-latest-f9da.onrender.com/api');
+function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    return process.env.NEXT_PUBLIC_API_URL || '/api';
+  }
+  return process.env.BACKEND_INTERNAL_URL || process.env.BACKEND_URL || 'http://127.0.0.1:4000/api';
+}
+
+// Ultra-fast in-memory client cache with 15s TTL for instant (0ms) page navigation
+const clientCache = new Map<string, { data: any; timestamp: number }>();
+const CLIENT_CACHE_TTL_MS = 15000;
+
+export function invalidateClientCache(prefix?: string) {
+  if (!prefix) {
+    clientCache.clear();
+    return;
+  }
+  clientCache.forEach((_, key) => {
+    if (key.includes(prefix)) {
+      clientCache.delete(key);
+    }
+  });
+}
 
 export async function fetchApi<T = any>(
   endpoint: string,
-  options: RequestInit & { demoRole?: string; schoolId?: string } = {}
+  options: RequestInit & { demoRole?: string; schoolId?: string; bypassCache?: boolean } = {}
 ): Promise<T> {
+  const isGet = !options.method || options.method.toUpperCase() === 'GET';
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   const activeRole = typeof window !== 'undefined' ? localStorage.getItem('demo_role') : options.demoRole;
   let activeSchoolId = typeof window !== 'undefined' ? localStorage.getItem('school_id') : options.schoolId;
   if (activeSchoolId === 'greenwood-high') {
     activeSchoolId = 'school-greenwood-high';
+  }
+
+  // Check client-side in-memory cache for instant 0ms responses on navigation
+  const cacheKey = `${endpoint}_${activeSchoolId || ''}_${activeRole || ''}`;
+  if (isGet && !options.bypassCache && typeof window !== 'undefined') {
+    const cached = clientCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CLIENT_CACHE_TTL_MS) {
+      return cached.data;
+    }
+  }
+
+  // Mutating requests invalidate cache
+  if (!isGet) {
+    const resourcePrefix = endpoint.split('/')[1] || '';
+    invalidateClientCache(resourcePrefix);
   }
 
   const headers: Record<string, string> = {
@@ -29,8 +64,10 @@ export async function fetchApi<T = any>(
     headers['x-demo-school-id'] = activeSchoolId;
   }
 
+  const apiBase = getApiBase();
+
   try {
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+    const res = await fetch(`${apiBase}${endpoint}`, {
       ...options,
       headers,
     });
@@ -40,7 +77,14 @@ export async function fetchApi<T = any>(
       throw new Error(err.message || 'API request failed');
     }
 
-    return res.json();
+    const data = await res.json();
+
+    // Cache successful GET requests for instant subsequent renders
+    if (isGet && typeof window !== 'undefined') {
+      clientCache.set(cacheKey, { data, timestamp: Date.now() });
+    }
+
+    return data;
   } catch (error: any) {
     console.warn(`[API Notice] ${endpoint} fetch error (${error.message}).`);
     throw error;

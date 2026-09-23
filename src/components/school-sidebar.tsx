@@ -74,12 +74,27 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
         try {
           const parsed = JSON.parse(userStr);
           setCurrentUser(parsed);
+          const staff = parsed.staffProfile;
+          if (staff?.managedClasses?.length > 0) {
+            setClassTeacherBadge(staff.managedClasses[0].name);
+          } else if (staff?.managedSections?.length > 0) {
+            const sec = staff.managedSections[0];
+            setClassTeacherBadge(`${sec.gradeClass?.name || "Class"} - ${sec.name}`);
+          }
         } catch (e) {}
       }
+    }
+  }, [pathname]);
 
+  // Fetch updated profile once on initial mount only, never on every page click!
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
       erpApi.getProfile().then((res) => {
         if (res) {
           setCurrentUser(res);
+          try {
+            localStorage.setItem("user", JSON.stringify(res));
+          } catch (e) {}
           const staff = res.staffProfile;
           if (staff?.managedClasses?.length > 0) {
             setClassTeacherBadge(staff.managedClasses[0].name);
@@ -92,7 +107,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
         }
       }).catch(() => {});
     }
-  }, [pathname]);
+  }, []);
 
   // -------------------------------------------------------------
   // TEACHER PORTAL ISOLATED MODULES (Requested 10 Features)
