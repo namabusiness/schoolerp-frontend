@@ -284,4 +284,25 @@ export const erpApi = {
     fetchApi(`/academics/timetable/slot/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   resetClassTimetable: (classId: string, sectionId?: string) =>
     fetchApi(`/academics/timetable/class/${classId}${sectionId && sectionId !== 'ALL' ? `?sectionId=${sectionId}` : ''}`, { method: 'DELETE' }),
+
+  // Transport & Driver Operations
+  getDriverAssignedData: () => fetchApi('/transport/driver/assigned'),
+  getDriverActiveTrip: () => fetchApi('/transport/driver/active-trip'),
+  startDriverTrip: (data: { routeId?: string; vehicleId?: string; tripType?: string }) =>
+    fetchApi('/transport/driver/trips/start', { method: 'POST', body: JSON.stringify(data) }),
+  updateDriverTripLocation: (tripId: string, coords: { latitude: number; longitude: number; speed?: number; heading?: number }) =>
+    fetchApi(`/transport/driver/trips/${tripId}/location`, { method: 'POST', body: JSON.stringify(coords) }),
+  updateTripStopStatus: (tripId: string, stopId: string, status: 'REACHED' | 'SKIPPED') =>
+    fetchApi(`/transport/driver/trips/${tripId}/stops/${stopId}/status`, { method: 'POST', body: JSON.stringify({ status }) }),
+  updateTripStudentStatus: (tripId: string, studentId: string, status: 'WAITING' | 'BOARDED' | 'DROPPED' | 'ABSENT' | 'SKIPPED', remarks?: string) =>
+    fetchApi(`/transport/driver/trips/${tripId}/students/${studentId}/status`, { method: 'POST', body: JSON.stringify({ status, remarks }) }),
+  endDriverTrip: (tripId: string, notes?: string) =>
+    fetchApi(`/transport/driver/trips/${tripId}/end`, { method: 'POST', body: JSON.stringify({ notes }) }),
+  reportTransportIncident: (data: any) =>
+    fetchApi('/transport/driver/incidents', { method: 'POST', body: JSON.stringify(data) }),
+  getDriverIncidents: () => fetchApi('/transport/driver/incidents'),
+  logVehicleInspection: (data: any) =>
+    fetchApi('/transport/driver/inspections', { method: 'POST', body: JSON.stringify(data) }),
+  getVehicleInspections: () => fetchApi('/transport/driver/inspections'),
 };
+

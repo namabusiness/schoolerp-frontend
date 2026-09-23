@@ -13,6 +13,7 @@ import {
   FileCheck2,
   Receipt,
   Bus,
+  MapPin,
   Library,
   Megaphone,
   Briefcase,
@@ -149,9 +150,11 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
   // DRIVER PORTAL ISOLATED MODULES
   // -------------------------------------------------------------
   const DRIVER_MODULES = [
-    { title: "Transport & My Route", url: `${basePath}/transport?tab=routes`, icon: Bus },
-    { title: "Vehicle & Fleet Status", url: `${basePath}/transport?tab=fleet`, icon: ShieldCheck },
-    { title: "Schedule & Daily Trips", url: `${basePath}/transport?tab=trips`, icon: CalendarCheck },
+    { title: "Driver Console & Trips", tab: "trips", url: `${basePath}/driver?tab=trips`, icon: Bus },
+    { title: "Route Stops & Milestones", tab: "stops", url: `${basePath}/driver?tab=stops`, icon: MapPin },
+    { title: "Student Commuters", tab: "students", url: `${basePath}/driver?tab=students`, icon: Users },
+    { title: "Vehicle Safety & Fuel", tab: "vehicle", url: `${basePath}/driver?tab=vehicle`, icon: Briefcase },
+    { title: "Emergency SOS Log", tab: "incidents", url: `${basePath}/driver?tab=incidents`, icon: ShieldAlert },
   ];
 
   // -------------------------------------------------------------
@@ -203,7 +206,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild className="hover:bg-zinc-100">
-              <Link href={isTeacher ? `${basePath}/teacher` : isParent ? `${basePath}/parent` : isDriver ? `${basePath}/transport` : `${basePath}/dashboard`}>
+              <Link href={isTeacher ? `${basePath}/teacher` : isParent ? `${basePath}/parent` : isDriver ? `${basePath}/driver` : `${basePath}/dashboard`}>
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-900 text-white font-bold text-xs uppercase">
                   {schoolSlug.substring(0, 2)}
                 </div>
@@ -498,7 +501,7 @@ export function SchoolSidebar({ schoolSlug, ...props }: SchoolSidebarProps) {
               <SidebarMenu>
                 {DRIVER_MODULES.map((item) => {
                   const Icon = item.icon;
-                  const isActive = pathname?.includes("/transport");
+                  const isActive = pathname?.includes("/driver") && (currentTab === item.tab || (!searchParams?.get("tab") && item.tab === "trips"));
                   return (
                     <SidebarMenuItem key={item.title}>
                       <SidebarMenuButton

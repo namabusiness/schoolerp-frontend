@@ -35,7 +35,7 @@ const SCHOOL_ROLES = [
   { id: "TEACHER", label: "Teacher", icon: BookOpen, defaultEmail: "arvindh.nathan@greenwoodhigh.edu", path: "/greenwood-high/teacher" },
   { id: "PARENT", label: "Parent", icon: Users, defaultEmail: "parent@greenwoodhigh.edu", path: "/greenwood-high/parent" },
   { id: "TRANSPORT_MANAGER", label: "Transport Manager", icon: Compass, defaultEmail: "transport@greenwoodhigh.edu", path: "/greenwood-high/transport" },
-  { id: "DRIVER", label: "Driver", icon: Bus, defaultEmail: "driver@greenwoodhigh.edu", path: "/greenwood-high/transport" },
+  { id: "DRIVER", label: "Driver", icon: Bus, defaultEmail: "murugan.driver@greenwoodhigh.edu", path: "/greenwood-high/driver" },
 ];
 
 export default function LoginPage() {
@@ -56,6 +56,7 @@ export default function LoginPage() {
       case "PARENT":
         return "/greenwood-high/parent";
       case "DRIVER":
+        return "/greenwood-high/driver";
       case "TRANSPORT_MANAGER":
         return "/greenwood-high/transport";
       case "SCHOOL_ADMIN":
